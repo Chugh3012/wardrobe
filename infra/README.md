@@ -129,9 +129,9 @@ infra/
 ├── main.bicepparam     # Non-secret parameter values
 ├── README.md           # This file
 └── modules/
-    └── static-web-app.bicep   # Issue #1 — Azure Static Web App (Free SKU)
+    ├── static-web-app.bicep   # Issue #1 — Azure Static Web App (Free SKU)
+    └── functions.bicep        # Issue #2 — Azure Functions API (Consumption plan)
     # future modules added per issue:
-    # └── functions.bicep       # Issue #2
     # └── blob-storage.bicep    # Issue #3
     # └── cosmos-db.bicep       # Issue #4
     # └── key-vault.bicep       # Issue #13

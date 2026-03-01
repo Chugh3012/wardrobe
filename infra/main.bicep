@@ -42,6 +42,19 @@ module swa 'modules/static-web-app.bicep' = {
   }
 }
 
+// ── Azure Functions Backend API ───────────────────────────────────────────────
+
+module functions 'modules/functions.bicep' = {
+  name: 'functions-${environmentName}'
+  scope: rg
+  params: {
+    location: location
+    environmentName: environmentName
+    tags: tags
+    staticWebAppHostname: swa.outputs.defaultHostname
+  }
+}
+
 // ── Outputs ──────────────────────────────────────────────────────────────────
 
 @description('Name of the provisioned Static Web App resource.')
@@ -49,3 +62,9 @@ output staticWebAppName string = swa.outputs.staticWebAppName
 
 @description('Default hostname of the Static Web App.')
 output staticWebAppHostname string = swa.outputs.defaultHostname
+
+@description('Name of the provisioned Function App.')
+output functionAppName string = functions.outputs.functionAppName
+
+@description('Default hostname of the Function App.')
+output functionAppHostname string = functions.outputs.functionAppHostname
