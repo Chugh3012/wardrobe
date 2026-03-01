@@ -75,6 +75,39 @@ jobs:
             --parameters infra/main.bicepparam \
             --parameters environmentName=${{ github.event.inputs.environment || 'dev' }}
 
+      # If a previous Cosmos DB deployment left the account in a "Failed"
+      # provisioning state, Azure blocks re-creation. Delete the broken
+      # resource so the Bicep deployment can proceed.
+      - name: Clean up failed Cosmos DB account
+        run: |
+          env=${{ github.event.inputs.environment || 'dev' }}
+          rg="rg-wardrobe-${env}"
+          account="cosmos-wardrobe-${env}"
+
+          # Check if the account exists; az cosmosdb show exits 0 on success.
+          if ! az cosmosdb show --resource-group "$rg" --name "$account" --output none 2>/dev/null; then
+            echo "Cosmos DB account '$account' does not exist yet — no cleanup needed."
+            exit 0
+          fi
+
+          state=$(az cosmosdb show \
+            --resource-group "$rg" \
+            --name "$account" \
+            --query "provisioningState" \
+            --output tsv)
+
+          if [ "$state" = "Failed" ]; then
+            echo "::warning::Cosmos DB account '$account' is in Failed state — deleting before redeploy."
+            if az cosmosdb delete --resource-group "$rg" --name "$account" --yes; then
+              echo "Deleted failed Cosmos DB account '$account'."
+            else
+              echo "::error::Failed to delete Cosmos DB account '$account'. Subsequent deployment may fail."
+              exit 1
+            fi
+          else
+            echo "Cosmos DB account state: $state — no cleanup needed."
+          fi
+
       # Deploy the Bicep template at subscription scope.
       - name: Deploy Bicep
         id: deploy
