@@ -54,7 +54,7 @@ export async function updatePredictionAudit(
   const container = getContainer();
   const { resource: existing } = await container.item(id, userId).read<PredictionAudit>();
   if (!existing) {
-    throw new Error(`PredictionAudit ${id} not found.`);
+    throw new Error(`PredictionAudit ${id} not found for user ${userId}.`);
   }
   const updated: PredictionAudit = { ...existing, userFinalSelection };
   const { resource } = await container.item(id, userId).replace<PredictionAudit>(updated);

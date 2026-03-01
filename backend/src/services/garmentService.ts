@@ -50,7 +50,7 @@ export async function incrementWearCount(id: string, userId: string): Promise<Ga
   const container = getContainer();
   const { resource: existing } = await container.item(id, userId).read<Garment>();
   if (!existing) {
-    throw new Error(`Garment ${id} not found.`);
+    throw new Error(`Garment ${id} not found for user ${userId}.`);
   }
   const updated: Garment = {
     ...existing,
