@@ -44,6 +44,9 @@ module swa 'modules/static-web-app.bicep' = {
 
 // ── Azure Functions Backend API ───────────────────────────────────────────────
 
+var blobStorageAccountName = 'stwardrobeimg${environmentName}'
+var blobContainerName = 'images'
+
 module functions 'modules/functions.bicep' = {
   name: 'functions-${environmentName}'
   scope: rg
@@ -52,6 +55,23 @@ module functions 'modules/functions.bicep' = {
     environmentName: environmentName
     tags: tags
     staticWebAppHostname: swa.outputs.defaultHostname
+    blobStorageAccountName: blobStorageAccountName
+    blobContainerName: blobContainerName
+  }
+}
+
+// ── Blob Storage for Images ───────────────────────────────────────────────────
+
+module blobStorage 'modules/blob-storage.bicep' = {
+  name: 'blob-storage-${environmentName}'
+  scope: rg
+  params: {
+    location: location
+    environmentName: environmentName
+    tags: tags
+    storageAccountName: blobStorageAccountName
+    containerName: blobContainerName
+    functionAppPrincipalId: functions.outputs.functionAppPrincipalId
   }
 }
 
@@ -68,3 +88,9 @@ output functionAppName string = functions.outputs.functionAppName
 
 @description('Default hostname of the Function App.')
 output functionAppHostname string = functions.outputs.functionAppHostname
+
+@description('Name of the Blob Storage account for images.')
+output blobStorageAccountName string = blobStorage.outputs.storageAccountName
+
+@description('Name of the blob container for images.')
+output blobContainerName string = blobStorage.outputs.containerName

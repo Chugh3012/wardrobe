@@ -101,7 +101,7 @@ Deploy an Azure Functions app using the Consumption plan to serve as the backend
 
 ### Issue #3: Setup Azure Blob Storage for Images
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 Configure an Azure Blob Storage account and container to store garment catalog photos and daily outfit images. Images should be accessible via SAS tokens or signed URLs to enforce least-privilege access. This storage layer will be used by both the garment onboarding flow and the daily wear prediction flow.
@@ -487,7 +487,7 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 | #1 | Setup Azure Static Web App (Frontend PWA) | MVP | [x] Done |
 | #1.5 | Provision Azure Resource Group & Baseline Infrastructure (Bicep + OIDC) | MVP | [x] Done |
 | #2 | Setup Azure Functions Backend API | MVP | [x] Done |
-| #3 | Setup Azure Blob Storage for Images | MVP | [ ] Open |
+| #3 | Setup Azure Blob Storage for Images | MVP | [x] Done |
 | #4 | Setup Cosmos DB & Data Models | MVP | [ ] Open |
 | #5 | Implement `POST /garments` | MVP | [ ] Open |
 | #6 | Implement `GET /garments` | MVP | [ ] Open |
