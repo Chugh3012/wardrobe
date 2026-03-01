@@ -46,8 +46,6 @@ module swa 'modules/static-web-app.bicep' = {
 
 var blobStorageAccountName = 'stwardrobeimg${environmentName}'
 var blobContainerName = 'images'
-var cosmosAccountName = 'cosmos-wardrobe-${environmentName}'
-var cosmosDbDatabaseName = 'wardrobe'
 
 module functions 'modules/functions.bicep' = {
   name: 'functions-${environmentName}'
@@ -59,8 +57,8 @@ module functions 'modules/functions.bicep' = {
     staticWebAppHostname: swa.outputs.defaultHostname
     blobStorageAccountName: blobStorageAccountName
     blobContainerName: blobContainerName
-    cosmosDbEndpoint: 'https://${cosmosAccountName}.documents.azure.com:443/'
-    cosmosDbDatabaseName: cosmosDbDatabaseName
+    cosmosDbEndpoint: cosmosDb.outputs.cosmosEndpoint
+    cosmosDbDatabaseName: cosmosDb.outputs.databaseName
   }
 }
 
@@ -87,6 +85,16 @@ module cosmosDb 'modules/cosmos-db.bicep' = {
     location: location
     environmentName: environmentName
     tags: tags
+  }
+}
+
+// ── Cosmos DB RBAC (depends on both Cosmos DB and Functions) ──────────────────
+
+module cosmosDbRbac 'modules/cosmos-db-rbac.bicep' = {
+  name: 'cosmos-db-rbac-${environmentName}'
+  scope: rg
+  params: {
+    cosmosAccountName: cosmosDb.outputs.cosmosAccountName
     functionAppPrincipalId: functions.outputs.functionAppPrincipalId
   }
 }

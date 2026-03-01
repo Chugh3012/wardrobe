@@ -22,7 +22,10 @@ export async function createGarment(
     ...input,
   };
   const { resource } = await getContainer().items.create<Garment>(garment);
-  return resource!;
+  if (!resource) {
+    throw new Error("Cosmos DB create returned no resource.");
+  }
+  return resource;
 }
 
 /**

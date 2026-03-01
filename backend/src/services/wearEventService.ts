@@ -19,7 +19,10 @@ export async function createWearEvent(
     ...input,
   };
   const { resource } = await getContainer().items.create<WearEvent>(wearEvent);
-  return resource!;
+  if (!resource) {
+    throw new Error("Cosmos DB create returned no resource.");
+  }
+  return resource;
 }
 
 /**

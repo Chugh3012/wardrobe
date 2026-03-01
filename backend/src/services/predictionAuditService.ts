@@ -19,7 +19,10 @@ export async function createPredictionAudit(
     ...input,
   };
   const { resource } = await getContainer().items.create<PredictionAudit>(audit);
-  return resource!;
+  if (!resource) {
+    throw new Error("Cosmos DB create returned no resource.");
+  }
+  return resource;
 }
 
 /**

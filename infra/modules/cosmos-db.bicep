@@ -6,9 +6,10 @@
 //   2. SQL Database        — "wardrobe"
 //   3. SQL Containers      — "garments", "wearEvents", "predictionAudits"
 //                            (all partitioned by /userId).
-//   4. SQL Role Assignment — Function App Managed Identity receives the
-//                            built-in "Cosmos DB Built-in Data Contributor"
-//                            role for data-plane CRUD.
+//
+// NOTE: The Cosmos DB data-plane RBAC assignment for the Function App Managed
+// Identity is created via a separate module (cosmos-db-rbac.bicep) to avoid a
+// circular dependency between the Functions and Cosmos DB modules.
 
 targetScope = 'resourceGroup'
 
@@ -20,9 +21,6 @@ param environmentName string
 
 @description('Resource tags.')
 param tags object
-
-@description('Object (principal) ID of the Function App Managed Identity.')
-param functionAppPrincipalId string
 
 // ── Cosmos DB Account (Serverless) ───────────────────────────────────────────
 
@@ -107,21 +105,6 @@ resource predictionAuditsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDat
         kind: 'Hash'
       }
     }
-  }
-}
-
-// ── Cosmos DB Data-Plane RBAC ────────────────────────────────────────────────
-// The built-in "Cosmos DB Built-in Data Contributor" role allows full
-// data-plane CRUD (create, read, update, delete items & execute queries).
-// Role ID: 00000000-0000-0000-0000-000000000002
-
-resource dataContributorRoleAssignment 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-05-15' = {
-  parent: cosmosAccount
-  name: guid(cosmosAccount.id, functionAppPrincipalId, '00000000-0000-0000-0000-000000000002')
-  properties: {
-    roleDefinitionId: '${cosmosAccount.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002'
-    principalId: functionAppPrincipalId
-    scope: cosmosAccount.id
   }
 }
 
