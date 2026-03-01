@@ -13,7 +13,7 @@ The GitHub Actions workflow `provision-infra.yml` runs these templates automatic
 | GitHub → Azure auth | **OIDC Workload Identity Federation** — no long-lived client secret ever stored |
 | Service-to-service auth | Managed Identity (added per-resource as issues #2–#13 are implemented) |
 | Secrets at runtime | Azure Key Vault — referenced via `getSecret()` in Bicep modules |
-| RBAC scope | `Contributor` on `rg-wardrobe-<env>` only, not the whole subscription |
+| RBAC scope | `Owner` on `rg-wardrobe-<env>` (needed for RBAC assignments); downscope after initial setup |
 | Bicep parameter files | Zero secrets — only non-sensitive configuration values |
 
 ---
@@ -55,19 +55,28 @@ az ad app federated-credential create \
   }'
 ```
 
-### 3. Grant the minimum RBAC role
+### 3. Grant the minimum RBAC roles
 
 ```bash
 SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 SP_OBJECT_ID=$(az ad sp show --id "$APP_ID" --query id -o tsv)
 
-# Contributor on the subscription is needed for the first run only
+# Owner on the subscription is needed for the first run only
 # (to create the resource group). After the resource group exists you can
-# downscope this to Contributor on rg-wardrobe-dev only.
+# downscope this to Owner on rg-wardrobe-dev only.
+#
+# NOTE: "Owner" (not just "Contributor") is required because the Bicep
+# templates create RBAC role assignments (e.g. granting the Function App
+# Managed Identity access to Blob Storage and Cosmos DB). The
+# Microsoft.Authorization/roleAssignments/write permission is only
+# available to Owner or User Access Administrator roles.
+#
+# Alternative least-privilege approach: assign Contributor + User Access
+# Administrator on the resource group instead of Owner.
 az role assignment create \
   --assignee-object-id "$SP_OBJECT_ID" \
   --assignee-principal-type ServicePrincipal \
-  --role Contributor \
+  --role Owner \
   --scope "/subscriptions/$SUBSCRIPTION_ID"
 ```
 
@@ -130,10 +139,10 @@ infra/
 ├── README.md           # This file
 └── modules/
     ├── static-web-app.bicep   # Issue #1 — Azure Static Web App (Free SKU)
-    └── functions.bicep        # Issue #2 — Azure Functions API (Consumption plan)
+    ├── functions.bicep        # Issue #2 — Azure Functions API (Consumption plan)
+    ├── blob-storage.bicep     # Issue #3 — Blob Storage for images
+    ├── cosmos-db.bicep        # Issue #4 — Cosmos DB NoSQL (serverless)
     # future modules added per issue:
-    # └── blob-storage.bicep    # Issue #3
-    # └── cosmos-db.bicep       # Issue #4
     # └── key-vault.bicep       # Issue #13
     # └── app-insights.bicep    # Issue #14
 ```

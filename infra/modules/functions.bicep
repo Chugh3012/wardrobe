@@ -28,6 +28,12 @@ param blobStorageAccountName string
 @description('Name of the blob container used for images.')
 param blobContainerName string
 
+@description('Cosmos DB account endpoint URI.')
+param cosmosDbEndpoint string
+
+@description('Name of the Cosmos DB SQL database.')
+param cosmosDbDatabaseName string
+
 // ── Storage Account (required by Functions runtime) ──────────────────────────
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -118,6 +124,14 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'BLOB_CONTAINER_NAME'
           value: blobContainerName
+        }
+        {
+          name: 'COSMOS_DB_ENDPOINT'
+          value: cosmosDbEndpoint
+        }
+        {
+          name: 'COSMOS_DB_DATABASE_NAME'
+          value: cosmosDbDatabaseName
         }
       ]
     }

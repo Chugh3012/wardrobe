@@ -57,6 +57,8 @@ module functions 'modules/functions.bicep' = {
     staticWebAppHostname: swa.outputs.defaultHostname
     blobStorageAccountName: blobStorageAccountName
     blobContainerName: blobContainerName
+    cosmosDbEndpoint: cosmosDb.outputs.cosmosEndpoint
+    cosmosDbDatabaseName: cosmosDb.outputs.databaseName
   }
 }
 
@@ -67,10 +69,32 @@ module blobStorage 'modules/blob-storage.bicep' = {
   scope: rg
   params: {
     location: location
-    environmentName: environmentName
     tags: tags
     storageAccountName: blobStorageAccountName
     containerName: blobContainerName
+    functionAppPrincipalId: functions.outputs.functionAppPrincipalId
+  }
+}
+
+// ── Cosmos DB ─────────────────────────────────────────────────────────────────
+
+module cosmosDb 'modules/cosmos-db.bicep' = {
+  name: 'cosmos-db-${environmentName}'
+  scope: rg
+  params: {
+    location: location
+    environmentName: environmentName
+    tags: tags
+  }
+}
+
+// ── Cosmos DB RBAC (depends on both Cosmos DB and Functions) ──────────────────
+
+module cosmosDbRbac 'modules/cosmos-db-rbac.bicep' = {
+  name: 'cosmos-db-rbac-${environmentName}'
+  scope: rg
+  params: {
+    cosmosAccountName: cosmosDb.outputs.cosmosAccountName
     functionAppPrincipalId: functions.outputs.functionAppPrincipalId
   }
 }
@@ -94,3 +118,9 @@ output blobStorageAccountName string = blobStorage.outputs.storageAccountName
 
 @description('Name of the blob container for images.')
 output blobContainerName string = blobStorage.outputs.containerName
+
+@description('Name of the Cosmos DB account.')
+output cosmosAccountName string = cosmosDb.outputs.cosmosAccountName
+
+@description('Cosmos DB account endpoint URI.')
+output cosmosEndpoint string = cosmosDb.outputs.cosmosEndpoint
