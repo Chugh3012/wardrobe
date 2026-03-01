@@ -44,6 +44,27 @@ export async function readPredictionAudit(
 }
 
 /**
+ * Updates the userFinalSelection field on an existing PredictionAudit.
+ */
+export async function updatePredictionAudit(
+  id: string,
+  userId: string,
+  userFinalSelection: string
+): Promise<PredictionAudit> {
+  const container = getContainer();
+  const { resource: existing } = await container.item(id, userId).read<PredictionAudit>();
+  if (!existing) {
+    throw new Error(`PredictionAudit ${id} not found.`);
+  }
+  const updated: PredictionAudit = { ...existing, userFinalSelection };
+  const { resource } = await container.item(id, userId).replace<PredictionAudit>(updated);
+  if (!resource) {
+    throw new Error("Cosmos DB replace returned no resource.");
+  }
+  return resource;
+}
+
+/**
  * Lists all prediction audits for a given userId.
  */
 export async function listPredictionAudits(userId: string): Promise<PredictionAudit[]> {

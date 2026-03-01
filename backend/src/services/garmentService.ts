@@ -44,6 +44,27 @@ export async function readGarment(id: string, userId: string): Promise<Garment |
 }
 
 /**
+ * Increments the wearCount on a Garment by 1 and updates the updatedAt timestamp.
+ */
+export async function incrementWearCount(id: string, userId: string): Promise<Garment> {
+  const container = getContainer();
+  const { resource: existing } = await container.item(id, userId).read<Garment>();
+  if (!existing) {
+    throw new Error(`Garment ${id} not found.`);
+  }
+  const updated: Garment = {
+    ...existing,
+    wearCount: existing.wearCount + 1,
+    updatedAt: new Date().toISOString(),
+  };
+  const { resource } = await container.item(id, userId).replace<Garment>(updated);
+  if (!resource) {
+    throw new Error("Cosmos DB replace returned no resource.");
+  }
+  return resource;
+}
+
+/**
  * Lists all garments for a given userId.
  */
 export async function listGarments(userId: string): Promise<Garment[]> {
