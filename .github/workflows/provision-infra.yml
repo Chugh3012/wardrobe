@@ -1,0 +1,113 @@
+# Provisions Azure infrastructure using Bicep.
+#
+# Authentication: OIDC Workload Identity Federation only.
+# No long-lived client secrets are stored in GitHub.
+# Required GitHub Actions secrets (non-secret identifiers):
+#   AZURE_CLIENT_ID      – App registration (service principal) client ID
+#   AZURE_TENANT_ID      – Entra tenant ID
+#   AZURE_SUBSCRIPTION_ID – Azure subscription ID
+#
+# After infra is provisioned the workflow reads the Static Web App deployment
+# token from Azure and writes it to the AZURE_STATIC_WEB_APPS_API_TOKEN secret
+# so the deploy-frontend.yml workflow can run without any manual token copy-paste.
+# This step requires the ACTIONS_TOKEN secret (a fine-grained PAT or classic PAT
+# with `secrets` write scope on this repository).
+
+name: Provision Infrastructure
+
+on:
+  # Run manually from the Actions tab (choose environment via input).
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+  # Run automatically when Bicep files change on main.
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra/**'
+
+permissions:
+  id-token: write   # Required for OIDC token exchange
+  contents: read
+
+jobs:
+  provision:
+    name: Provision Azure Infra (${{ github.event.inputs.environment || 'dev' }})
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Exchange the GitHub OIDC token for an Azure access token.
+      # No client secret is used or stored.
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Lint the Bicep templates before deploying.
+      - name: Bicep lint
+        run: az bicep build --file infra/main.bicep
+
+      # Run a what-if to surface any destructive changes before they happen.
+      - name: Deployment what-if
+        run: |
+          az deployment sub what-if \
+            --location eastus \
+            --template-file infra/main.bicep \
+            --parameters infra/main.bicepparam \
+            --parameters environmentName=${{ github.event.inputs.environment || 'dev' }}
+
+      # Deploy the Bicep template at subscription scope.
+      - name: Deploy Bicep
+        id: deploy
+        run: |
+          output=$(az deployment sub create \
+            --name "wardrobe-infra-$(date +%Y%m%d%H%M%S)" \
+            --location eastus \
+            --template-file infra/main.bicep \
+            --parameters infra/main.bicepparam \
+            --parameters environmentName=${{ github.event.inputs.environment || 'dev' }} \
+            --query "properties.outputs" \
+            --output json)
+          echo "deployment_output=$output" >> "$GITHUB_OUTPUT"
+          echo "swa_name=$(echo $output | jq -r '.staticWebAppName.value')" >> "$GITHUB_OUTPUT"
+          rg_name="rg-wardrobe-${{ github.event.inputs.environment || 'dev' }}"
+          echo "rg_name=$rg_name" >> "$GITHUB_OUTPUT"
+
+      # Read the SWA deployment token from Azure and store it as a GitHub
+      # Actions secret so the deploy-frontend.yml workflow can use it.
+      # The token never appears in Bicep state or workflow logs (masked by GH).
+      - name: Sync SWA deployment token to GitHub secret
+        env:
+          GH_TOKEN: ${{ secrets.ACTIONS_TOKEN }}
+        run: |
+          SWA_TOKEN=$(az staticwebapp secrets list \
+            --name "${{ steps.deploy.outputs.swa_name }}" \
+            --resource-group "${{ steps.deploy.outputs.rg_name }}" \
+            --query "properties.apiKey" \
+            --output tsv)
+
+          # Write the token to the GitHub Actions secret using the CLI.
+          gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN \
+            --repo "${{ github.repository }}" \
+            --body "$SWA_TOKEN"
+
+      - name: Print deployed resources
+        run: |
+          echo "Static Web App: ${{ steps.deploy.outputs.swa_name }}"
+          echo "Resource group: ${{ steps.deploy.outputs.rg_name }}"
+          echo "Hostname: $(echo '${{ steps.deploy.outputs.deployment_output }}' | jq -r '.staticWebAppHostname.value')"
