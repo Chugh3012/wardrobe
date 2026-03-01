@@ -49,7 +49,7 @@ Deploy a mobile-first Progressive Web App (PWA) shell hosted on Azure Static Web
 
 ### Issue #1.5: Provision Azure Resource Group & Baseline Infrastructure (Bicep + OIDC)
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 Provision the shared Azure resource group and the Static Web App resource using Bicep (Infrastructure as Code). All GitHub Actions → Azure authentication must use **OIDC Workload Identity Federation** — no long-lived client secrets or passwords are stored in GitHub. This unblocks Issue #1's CI pipeline and establishes the extensible infra scaffold that Issues #2–#14 will add modules to.
@@ -83,7 +83,7 @@ Provision the shared Azure resource group and the Static Web App resource using 
 
 ### Issue #2: Setup Azure Functions Backend API
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 Deploy an Azure Functions app using the Consumption plan to serve as the backend API for the wardrobe tracker. Include a health/ping endpoint to verify the deployment is live. All subsequent API endpoints (garments, wear events, stats) will be added to this Functions app.
@@ -485,8 +485,8 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 |-------|-------|-------|--------|
 | #0 | Define Testing Framework & Phone-Testing Strategy | Foundation | [x] Done |
 | #1 | Setup Azure Static Web App (Frontend PWA) | MVP | [x] Done |
-| #1.5 | Provision Azure Resource Group & Baseline Infrastructure (Bicep + OIDC) | MVP | [ ] Open |
-| #2 | Setup Azure Functions Backend API | MVP | [ ] Open |
+| #1.5 | Provision Azure Resource Group & Baseline Infrastructure (Bicep + OIDC) | MVP | [x] Done |
+| #2 | Setup Azure Functions Backend API | MVP | [x] Done |
 | #3 | Setup Azure Blob Storage for Images | MVP | [ ] Open |
 | #4 | Setup Cosmos DB & Data Models | MVP | [ ] Open |
 | #5 | Implement `POST /garments` | MVP | [ ] Open |

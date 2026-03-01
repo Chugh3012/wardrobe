@@ -10,6 +10,9 @@ build/
 .env.local
 .env.*.local
 
+# Azure Functions local settings (may contain connection strings)
+local.settings.json
+
 # Editor/OS
 .DS_Store
 *.swp

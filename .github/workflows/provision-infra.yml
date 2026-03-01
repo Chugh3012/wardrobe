@@ -113,3 +113,5 @@ jobs:
           echo "Static Web App: ${{ steps.deploy.outputs.swa_name }}"
           echo "Resource group: ${{ steps.deploy.outputs.rg_name }}"
           echo "Hostname: $(echo '${{ steps.deploy.outputs.deployment_output }}' | jq -r '.staticWebAppHostname.value')"
+          echo "Function App: $(echo '${{ steps.deploy.outputs.deployment_output }}' | jq -r '.functionAppName.value')"
+          echo "Function App Hostname: $(echo '${{ steps.deploy.outputs.deployment_output }}' | jq -r '.functionAppHostname.value')"

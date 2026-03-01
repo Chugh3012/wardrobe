@@ -1,0 +1,24 @@
+{
+  "name": "wardrobe-backend",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Azure Functions backend API for the Wardrobe Tracker",
+  "type": "module",
+  "main": "dist/src/functions/*.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "clean": "rm -rf dist",
+    "prestart": "npm run clean && npm run build",
+    "start": "func start",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
+  }
+}
