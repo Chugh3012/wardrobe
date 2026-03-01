@@ -14,9 +14,6 @@ targetScope = 'resourceGroup'
 @description('Azure region for all resources.')
 param location string
 
-@description('Short environment name used in resource names.')
-param environmentName string
-
 @description('Resource tags.')
 param tags object
 

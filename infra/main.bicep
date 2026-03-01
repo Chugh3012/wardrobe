@@ -46,6 +46,8 @@ module swa 'modules/static-web-app.bicep' = {
 
 var blobStorageAccountName = 'stwardrobeimg${environmentName}'
 var blobContainerName = 'images'
+var cosmosAccountName = 'cosmos-wardrobe-${environmentName}'
+var cosmosDbDatabaseName = 'wardrobe'
 
 module functions 'modules/functions.bicep' = {
   name: 'functions-${environmentName}'
@@ -57,6 +59,8 @@ module functions 'modules/functions.bicep' = {
     staticWebAppHostname: swa.outputs.defaultHostname
     blobStorageAccountName: blobStorageAccountName
     blobContainerName: blobContainerName
+    cosmosDbEndpoint: 'https://${cosmosAccountName}.documents.azure.com:443/'
+    cosmosDbDatabaseName: cosmosDbDatabaseName
   }
 }
 
@@ -67,10 +71,22 @@ module blobStorage 'modules/blob-storage.bicep' = {
   scope: rg
   params: {
     location: location
-    environmentName: environmentName
     tags: tags
     storageAccountName: blobStorageAccountName
     containerName: blobContainerName
+    functionAppPrincipalId: functions.outputs.functionAppPrincipalId
+  }
+}
+
+// ── Cosmos DB ─────────────────────────────────────────────────────────────────
+
+module cosmosDb 'modules/cosmos-db.bicep' = {
+  name: 'cosmos-db-${environmentName}'
+  scope: rg
+  params: {
+    location: location
+    environmentName: environmentName
+    tags: tags
     functionAppPrincipalId: functions.outputs.functionAppPrincipalId
   }
 }
@@ -94,3 +110,9 @@ output blobStorageAccountName string = blobStorage.outputs.storageAccountName
 
 @description('Name of the blob container for images.')
 output blobContainerName string = blobStorage.outputs.containerName
+
+@description('Name of the Cosmos DB account.')
+output cosmosAccountName string = cosmosDb.outputs.cosmosAccountName
+
+@description('Cosmos DB account endpoint URI.')
+output cosmosEndpoint string = cosmosDb.outputs.cosmosEndpoint
