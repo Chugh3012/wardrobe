@@ -8,16 +8,18 @@ This document breaks down the High-Level Design (HLD) from `README.md` into indi
 
 ### Issue #0: Define Testing Framework & Phone-Testing Strategy
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
+
+**Deliverable:** [`TESTING_STRATEGY.md`](TESTING_STRATEGY.md)
 
 **Description:**
 Establish the testing approach for the entire project before any feature work begins. This includes deciding how each feature will be verified from a phone browser, what tooling will be used, and what the definition of "phone-testable" means for this project.
 
 **Acceptance Criteria:**
-- A testing strategy document (or section in this file) exists describing the approach.
-- Team agrees on tools — e.g., browser DevTools remote debug, manual test checklist, or a lightweight test harness accessible via phone browser.
-- A reusable phone-test checklist template is defined and used in all subsequent issues.
-- Strategy covers: functional testing, API smoke tests from mobile browser, and PWA install verification.
+- [x] A testing strategy document (or section in this file) exists describing the approach — see [`TESTING_STRATEGY.md`](TESTING_STRATEGY.md).
+- [x] Team agrees on tools — Jest (unit), Supertest (integration), Playwright mobile emulation (E2E), Chrome/Safari DevTools remote debug, manual phone-test checklists.
+- [x] A reusable phone-test checklist template is defined and used in all subsequent issues — see §4 of `TESTING_STRATEGY.md`.
+- [x] Strategy covers: functional testing, API smoke tests from mobile browser, and PWA install verification — see §2 of `TESTING_STRATEGY.md`.
 
 **Phone-Test Validation:**
 > Open the testing strategy document on a phone browser and confirm the checklist is readable and all linked tools/URLs are accessible from mobile.
@@ -447,7 +449,7 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 
 | Issue | Title | Phase | Status |
 |-------|-------|-------|--------|
-| #0 | Define Testing Framework & Phone-Testing Strategy | Foundation | [ ] Open |
+| #0 | Define Testing Framework & Phone-Testing Strategy | Foundation | [x] Done |
 | #1 | Setup Azure Static Web App (Frontend PWA) | MVP | [ ] Open |
 | #2 | Setup Azure Functions Backend API | MVP | [ ] Open |
 | #3 | Setup Azure Blob Storage for Images | MVP | [ ] Open |
