@@ -190,7 +190,7 @@ Implement the `GET /garments` endpoint that returns a paginated list of all garm
 
 ### Issue #7: Implement `POST /wear/predict` — Upload Daily Outfit Image & Return Top Matches
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 Implement the `POST /wear/predict` endpoint that accepts a daily outfit photo from the user, stores it in Blob Storage, sends it to the AI vision service, and returns the top predicted garment matches with confidence scores. A `PredictionAudit` record is created for every prediction.
@@ -491,7 +491,7 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 | #4 | Setup Cosmos DB & Data Models | MVP | [x] Done |
 | #5 | Implement `POST /garments` | MVP | [x] Done |
 | #6 | Implement `GET /garments` | MVP | [x] Done |
-| #7 | Implement `POST /wear/predict` | MVP | [ ] Open |
+| #7 | Implement `POST /wear/predict` | MVP | [x] Done |
 | #8 | Implement `POST /wear/confirm` | MVP | [ ] Open |
 | #9 | Implement `GET /stats/summary` | MVP | [ ] Open |
 | #10 | Integrate Azure AI Custom Vision | MVP | [ ] Open |
