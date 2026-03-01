@@ -150,7 +150,7 @@ Data models to implement:
 
 ### Issue #5: Implement `POST /garments` — Create Garment & Catalog Photos
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 Implement the `POST /garments` endpoint that allows users to add a new garment to their catalog. Each garment requires a name, category, and 3–8 onboarding photos. Photos should be uploaded to Blob Storage and their URLs stored in the `Garment` document in Cosmos DB.
@@ -489,7 +489,7 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 | #2 | Setup Azure Functions Backend API | MVP | [x] Done |
 | #3 | Setup Azure Blob Storage for Images | MVP | [x] Done |
 | #4 | Setup Cosmos DB & Data Models | MVP | [x] Done |
-| #5 | Implement `POST /garments` | MVP | [ ] Open |
+| #5 | Implement `POST /garments` | MVP | [x] Done |
 | #6 | Implement `GET /garments` | MVP | [ ] Open |
 | #7 | Implement `POST /wear/predict` | MVP | [ ] Open |
 | #8 | Implement `POST /wear/confirm` | MVP | [ ] Open |
