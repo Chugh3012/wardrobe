@@ -139,7 +139,7 @@ jobs:
             fi
             echo "::endgroup::"
             if [ "$attempt" -lt "$max_attempts" ]; then
-              echo "::warning::Attempt $attempt failed. Retrying in ${delay}s…"
+              echo "::warning::Attempt $attempt failed. Retrying in ${delay}s..."
               sleep "$delay"
               delay=$((delay * 2))
             fi
