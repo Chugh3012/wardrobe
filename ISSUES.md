@@ -211,7 +211,7 @@ Implement the `POST /wear/predict` endpoint that accepts a daily outfit photo fr
 
 ### Issue #8: Implement `POST /wear/confirm` — Confirm/Correct Match & Increment Wear Count
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 Implement the `POST /wear/confirm` endpoint that records the user's confirmation or correction of a prediction. Wear count increments on `confirmed = true` only. Corrections are stored in the `PredictionAudit` record for future retraining.
@@ -231,7 +231,7 @@ Implement the `POST /wear/confirm` endpoint that records the user's confirmation
 
 ### Issue #9: Implement `GET /stats/summary` — Dashboard Stats
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 Implement the `GET /stats/summary` endpoint that returns aggregated wear statistics for the authenticated user's wardrobe. This powers the dashboard view shown at the end of the end-to-end flow.
@@ -492,8 +492,8 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 | #5 | Implement `POST /garments` | MVP | [x] Done |
 | #6 | Implement `GET /garments` | MVP | [x] Done |
 | #7 | Implement `POST /wear/predict` | MVP | [x] Done |
-| #8 | Implement `POST /wear/confirm` | MVP | [ ] Open |
-| #9 | Implement `GET /stats/summary` | MVP | [ ] Open |
+| #8 | Implement `POST /wear/confirm` | MVP | [x] Done |
+| #9 | Implement `GET /stats/summary` | MVP | [x] Done |
 | #10 | Integrate Azure AI Custom Vision | MVP | [ ] Open |
 | #11 | Add Fallback: Embeddings & Similarity Search | MVP | [ ] Open |
 | #12 | Implement Confidence-Based UX Guardrails | MVP | [ ] Open |
