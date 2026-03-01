@@ -83,8 +83,10 @@ jobs:
             --parameters environmentName=${{ github.event.inputs.environment || 'dev' }} \
             --query "properties.outputs" \
             --output json)
-          echo "deployment_output=$output" >> "$GITHUB_OUTPUT"
-          echo "swa_name=$(echo $output | jq -r '.staticWebAppName.value')" >> "$GITHUB_OUTPUT"
+          echo "deployment_output<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$output" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "swa_name=$(echo "$output" | jq -r '.staticWebAppName.value')" >> "$GITHUB_OUTPUT"
           rg_name="rg-wardrobe-${{ github.event.inputs.environment || 'dev' }}"
           echo "rg_name=$rg_name" >> "$GITHUB_OUTPUT"
 
