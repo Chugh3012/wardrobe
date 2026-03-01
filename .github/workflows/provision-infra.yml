@@ -109,23 +109,44 @@ jobs:
           fi
 
       # Deploy the Bicep template at subscription scope.
+      # Retries up to 3 times with exponential back-off to handle transient
+      # Azure capacity errors (e.g. Cosmos DB ServiceUnavailable).
       - name: Deploy Bicep
         id: deploy
         run: |
-          output=$(az deployment sub create \
-            --name "wardrobe-infra-$(date +%Y%m%d%H%M%S)" \
-            --location westeurope \
-            --template-file infra/main.bicep \
-            --parameters infra/main.bicepparam \
-            --parameters environmentName=${{ github.event.inputs.environment || 'dev' }} \
-            --query "properties.outputs" \
-            --output json)
-          echo "deployment_output<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$output" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-          echo "swa_name=$(echo "$output" | jq -r '.staticWebAppName.value')" >> "$GITHUB_OUTPUT"
-          rg_name="rg-wardrobe-${{ github.event.inputs.environment || 'dev' }}"
-          echo "rg_name=$rg_name" >> "$GITHUB_OUTPUT"
+          max_attempts=3
+          attempt=1
+          delay=60
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "::group::Deployment attempt $attempt of $max_attempts"
+            if output=$(az deployment sub create \
+              --name "wardrobe-infra-$(date +%Y%m%d%H%M%S)" \
+              --location westeurope \
+              --template-file infra/main.bicep \
+              --parameters infra/main.bicepparam \
+              --parameters environmentName=${{ github.event.inputs.environment || 'dev' }} \
+              --query "properties.outputs" \
+              --output json); then
+              echo "::endgroup::"
+              echo "Deployment succeeded on attempt $attempt."
+              echo "deployment_output<<EOF" >> "$GITHUB_OUTPUT"
+              echo "$output" >> "$GITHUB_OUTPUT"
+              echo "EOF" >> "$GITHUB_OUTPUT"
+              echo "swa_name=$(echo "$output" | jq -r '.staticWebAppName.value')" >> "$GITHUB_OUTPUT"
+              rg_name="rg-wardrobe-${{ github.event.inputs.environment || 'dev' }}"
+              echo "rg_name=$rg_name" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::endgroup::"
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "::warning::Attempt $attempt failed. Retrying in ${delay}s…"
+              sleep "$delay"
+              delay=$((delay * 2))
+            fi
+            attempt=$((attempt + 1))
+          done
+          echo "::error::Deployment failed after $max_attempts attempts."
+          exit 1
 
       # Read the SWA deployment token from Azure and store it as a GitHub
       # Actions secret so the deploy-frontend.yml workflow can use it.
