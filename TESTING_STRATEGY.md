@@ -26,7 +26,7 @@ Every feature in this project must be verifiable from a real phone browser (or i
 ### 2.2 Integration Tests
 
 - **Scope:** API endpoint behavior, database operations (Cosmos DB CRUD), Blob Storage upload/retrieve, and AI service call/response contracts.
-- **Tools:** [Supertest](https://github.com/ladakh/supertest) (or direct HTTP calls) against a locally running Azure Functions host (`func start`) or a staging environment.
+- **Tools:** [Supertest](https://github.com/ladjs/supertest) (or direct HTTP calls) against a locally running Azure Functions host (`func start`) or a staging environment.
 - **Run:** Locally via `npm run test:integration` and in CI against a staging deployment.
 - **Convention:** Integration test files use the `*.integration.test.ts` naming pattern.
 
