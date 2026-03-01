@@ -1,0 +1,108 @@
+.page {
+  padding: 24px 16px;
+}
+
+.header {
+  margin-bottom: 28px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+.uploadArea {
+  margin-bottom: 28px;
+}
+
+.photoUpload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px dashed var(--color-primary);
+  border-radius: 20px;
+  padding: 48px 16px;
+  cursor: pointer;
+  background: var(--color-primary-light);
+  transition: opacity 0.15s ease;
+  min-height: 220px;
+}
+
+.photoUpload:active {
+  opacity: 0.85;
+}
+
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.uploadIcon {
+  font-size: 52px;
+  margin-bottom: 8px;
+}
+
+.uploadText {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.uploadHint {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.instructions {
+  background: var(--color-surface);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.instructionsTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--color-text);
+}
+
+.tipsList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tipsList li {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.predictionArea {
+  background: var(--color-primary-light);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.predictionHint {
+  font-size: 14px;
+  color: var(--color-primary);
+  line-height: 1.6;
+  text-align: center;
+}
