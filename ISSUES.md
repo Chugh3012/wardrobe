@@ -30,7 +30,7 @@ Establish the testing approach for the entire project before any feature work be
 
 ### Issue #1: Setup Azure Static Web App (Frontend PWA)
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 Deploy a mobile-first Progressive Web App (PWA) shell hosted on Azure Static Web Apps. This is the entry point users will interact with from their phones. The shell should load fast, be installable as a home-screen app, and serve as the foundation for all future UI features.
@@ -450,7 +450,7 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 | Issue | Title | Phase | Status |
 |-------|-------|-------|--------|
 | #0 | Define Testing Framework & Phone-Testing Strategy | Foundation | [x] Done |
-| #1 | Setup Azure Static Web App (Frontend PWA) | MVP | [ ] Open |
+| #1 | Setup Azure Static Web App (Frontend PWA) | MVP | [x] Done |
 | #2 | Setup Azure Functions Backend API | MVP | [ ] Open |
 | #3 | Setup Azure Blob Storage for Images | MVP | [ ] Open |
 | #4 | Setup Cosmos DB & Data Models | MVP | [ ] Open |
