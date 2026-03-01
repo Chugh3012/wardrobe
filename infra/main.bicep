@@ -11,6 +11,9 @@ targetScope = 'subscription'
 @description('Azure region for all resources.')
 param location string = 'westeurope'
 
+@description('Azure region for Cosmos DB. Override when the primary region has capacity issues.')
+param cosmosDbLocation string = 'northeurope'
+
 @description('Short environment name used in resource names (e.g. dev, prod).')
 @allowed(['dev', 'staging', 'prod'])
 param environmentName string = 'dev'
@@ -82,7 +85,7 @@ module cosmosDb 'modules/cosmos-db.bicep' = {
   name: 'cosmos-db-${environmentName}'
   scope: rg
   params: {
-    location: location
+    location: cosmosDbLocation
     environmentName: environmentName
     tags: tags
   }
