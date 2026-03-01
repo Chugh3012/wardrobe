@@ -7,6 +7,11 @@ import {
 import { readPredictionAudit, updatePredictionAudit } from "../services/predictionAuditService.js";
 import { incrementWearCount } from "../services/garmentService.js";
 import { createWearEvent } from "../services/wearEventService.js";
+import {
+  extractUserId,
+  isAuthRequired,
+  unauthorizedResponse,
+} from "../services/authMiddleware.js";
 
 interface PostWearConfirmBody {
   userId?: unknown;
@@ -34,6 +39,7 @@ interface PostWearConfirmBody {
  *
  * Returns 200 with the created WearEvent.
  * Returns 400 for validation errors.
+ * Returns 401 when REQUIRE_AUTH is enabled and no auth header is present.
  * Returns 404 if the PredictionAudit is not found.
  */
 export async function postWearConfirm(
@@ -51,20 +57,23 @@ export async function postWearConfirm(
     };
   }
 
-  // ── Validate required fields ──────────────────────────────────────────────
-  const userId =
-    typeof body.userId === "string" ? body.userId.trim() : "";
-  const predictionAuditId =
-    typeof body.predictionAuditId === "string" ? body.predictionAuditId.trim() : "";
-  const confirmedGarmentId =
-    typeof body.confirmedGarmentId === "string" ? body.confirmedGarmentId.trim() : "";
+  // ── Authenticate ──────────────────────────────────────────────────────────
+  const userId = extractUserId(request, body as Record<string, unknown>);
 
   if (!userId) {
+    if (isAuthRequired()) return unauthorizedResponse();
     return {
       status: 400,
       jsonBody: { error: "'userId' is required." },
     };
   }
+
+  // ── Validate required fields ──────────────────────────────────────────────
+  const predictionAuditId =
+    typeof body.predictionAuditId === "string" ? body.predictionAuditId.trim() : "";
+  const confirmedGarmentId =
+    typeof body.confirmedGarmentId === "string" ? body.confirmedGarmentId.trim() : "";
+
   if (!predictionAuditId) {
     return {
       status: 400,

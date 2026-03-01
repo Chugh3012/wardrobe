@@ -7,6 +7,12 @@ import {
 import { listGarments } from "../services/garmentService.js";
 import { createPredictionAudit } from "../services/predictionAuditService.js";
 import { predictGarments } from "../services/predictionService.js";
+import { getConfidenceLevel } from "../services/configService.js";
+import {
+  extractUserId,
+  isAuthRequired,
+  unauthorizedResponse,
+} from "../services/authMiddleware.js";
 
 interface PostWearPredictBody {
   userId?: unknown;
@@ -25,8 +31,9 @@ interface PostWearPredictBody {
  *   "outfitImageUrl": "string"     // pre-uploaded Blob Storage URL
  * }
  *
- * Returns 200 with predictions array.
+ * Returns 200 with predictions array, source, and confidenceLevel.
  * Returns 400 for validation errors.
+ * Returns 401 when REQUIRE_AUTH is enabled and no auth header is present.
  * Returns 404 if the user has no garments to match against.
  */
 export async function postWearPredict(
@@ -44,18 +51,21 @@ export async function postWearPredict(
     };
   }
 
-  // ── Validate required fields ──────────────────────────────────────────────
-  const userId =
-    typeof body.userId === "string" ? body.userId.trim() : "";
-  const outfitImageUrl =
-    typeof body.outfitImageUrl === "string" ? body.outfitImageUrl.trim() : "";
+  // ── Authenticate ──────────────────────────────────────────────────────────
+  const userId = extractUserId(request, body as Record<string, unknown>);
 
   if (!userId) {
+    if (isAuthRequired()) return unauthorizedResponse();
     return {
       status: 400,
       jsonBody: { error: "'userId' is required." },
     };
   }
+
+  // ── Validate required fields ──────────────────────────────────────────────
+  const outfitImageUrl =
+    typeof body.outfitImageUrl === "string" ? body.outfitImageUrl.trim() : "";
+
   if (!outfitImageUrl) {
     return {
       status: 400,
@@ -77,13 +87,14 @@ export async function postWearPredict(
       };
     }
 
-    const predictions = predictGarments(garments);
+    const { predictions, source } = await predictGarments(outfitImageUrl, garments);
 
     // ── Create PredictionAudit ────────────────────────────────────────────
     const audit = await createPredictionAudit({
       userId,
       inputImageUrl: outfitImageUrl,
       topKPredictions: predictions,
+      source,
       userFinalSelection: "", // set later via POST /wear/confirm (Issue #8)
     });
 
@@ -96,14 +107,19 @@ export async function postWearPredict(
       confidence: p.confidence,
     }));
 
+    const topConfidence = predictions.length > 0 ? predictions[0].confidence : 0;
+    const confidenceLevel = getConfidenceLevel(topConfidence);
+
     context.log(
-      `Predicted ${results.length} garment(s) for user ${userId}, audit ${audit.id}`
+      `Predicted ${results.length} garment(s) for user ${userId}, audit ${audit.id}, source=${source}, level=${confidenceLevel}`
     );
 
     return {
       status: 200,
       jsonBody: {
         predictionAuditId: audit.id,
+        source,
+        confidenceLevel,
         predictions: results,
       },
     };

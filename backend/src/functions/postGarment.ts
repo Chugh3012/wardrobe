@@ -5,6 +5,13 @@ import {
   InvocationContext,
 } from "@azure/functions";
 import { createGarment } from "../services/garmentService.js";
+import { submitTrainingImages } from "../services/customVisionService.js";
+import { computeEmbedding } from "../services/embeddingService.js";
+import {
+  extractUserId,
+  isAuthRequired,
+  unauthorizedResponse,
+} from "../services/authMiddleware.js";
 
 /** Minimum number of catalog photos required for onboarding. */
 const MIN_PHOTOS = 3;
@@ -37,6 +44,7 @@ interface PostGarmentBody {
  *
  * Returns 201 with the created Garment document.
  * Returns 400 for validation errors.
+ * Returns 401 when REQUIRE_AUTH is enabled and no auth header is present.
  */
 export async function postGarment(
   request: HttpRequest,
@@ -52,18 +60,22 @@ export async function postGarment(
     };
   }
 
-  // ── Validate required fields ───────────────────────────────────────────────
-
-  const userId = typeof body.userId === "string" ? body.userId.trim() : "";
-  const name = typeof body.name === "string" ? body.name.trim() : "";
-  const category = typeof body.category === "string" ? body.category.trim() : "";
+  // ── Authenticate ───────────────────────────────────────────────────────────
+  const userId = extractUserId(request, body as Record<string, unknown>);
 
   if (!userId) {
+    if (isAuthRequired()) return unauthorizedResponse();
     return {
       status: 400,
       jsonBody: { error: "'userId' is required." },
     };
   }
+
+  // ── Validate required fields ───────────────────────────────────────────────
+
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const category = typeof body.category === "string" ? body.category.trim() : "";
+
   if (!name) {
     return {
       status: 400,
@@ -109,12 +121,26 @@ export async function postGarment(
   // ── Create garment ─────────────────────────────────────────────────────────
 
   try {
+    // Pre-compute embeddings for similarity search (Issue #11).
+    const embeddings: number[][] = [];
+    for (const url of catalogImageUrls) {
+      const emb = await computeEmbedding(url);
+      if (emb) embeddings.push(emb);
+    }
+
     const garment = await createGarment({
       userId,
       name,
       category,
       catalogImageUrls,
+      ...(embeddings.length > 0 ? { catalogEmbeddings: embeddings } : {}),
     });
+
+    // Submit catalog images to Custom Vision for training (Issue #10).
+    // This is fire-and-forget — failures are logged but do not block the response.
+    submitTrainingImages(garmentId(garment), catalogImageUrls).catch((err) =>
+      context.log(`Custom Vision training submission failed: ${err}`)
+    );
 
     context.log(`Created garment ${garment.id} for user ${userId}`);
 
@@ -129,6 +155,11 @@ export async function postGarment(
       jsonBody: { error: "Failed to create garment. Check server logs." },
     };
   }
+}
+
+/** Helper to get garmentId for Custom Vision training tag. */
+function garmentId(garment: { id: string }): string {
+  return garment.id;
 }
 
 app.http("postGarment", {
