@@ -1,1 +1,173 @@
-# wardrobe
+# Wardrobe Tracker (HLD)
+
+## 1) Is this a good idea?
+Yes — this is a practical personal-use idea with clear value: **track clothing usage frequency** to improve outfit planning and avoid under-used purchases.
+
+The main challenge is not storage/UI, it is **reliable cloth identification from daily photos** under changing lighting, angles, wrinkles, accessories, and partial visibility.
+
+---
+
+## 2) Key loopholes / risks to address early
+
+1. **Image recognition accuracy risk**  
+   Similar-looking dresses, different lighting, and cropped photos can cause wrong matches.
+
+2. **Cold start data quality**  
+   If initial catalog photos are inconsistent (background, angle, low light), model quality drops.
+
+3. **False auto-increment risk**  
+   Fully automatic count updates can silently corrupt stats.
+
+4. **Privacy/security concerns**  
+   Personal photos need encryption, least-privilege access, and retention controls.
+
+5. **User friction**  
+   If daily upload takes more than a few taps, adoption drops.
+
+---
+
+## 3) MVP approach (Azure-first)
+
+### MVP scope (smallest useful product)
+- Maintain a catalog of dresses with 3–8 onboarding photos per item.
+- Daily upload one outfit photo from phone.
+- System predicts matching dress with confidence.
+- User confirms/corrects in one tap.
+- Wear count increments only after confirmation.
+- Simple history + top-worn / least-worn view.
+
+### Out of scope for MVP
+- Multi-person wardrobe
+- Advanced recommendations/styling assistant
+- Video ingestion
+- Full closet segmentation
+
+---
+
+## 4) Proposed high-level architecture (Azure)
+
+### Frontend
+- **Azure Static Web Apps**: mobile-first web app (PWA-capable for phone usability).
+
+### Backend API
+- **Azure Functions (HTTP + Durable optional)**: endpoints for catalog, upload, prediction, confirm, and stats.
+
+### Storage
+- **Azure Blob Storage**: original and processed images.
+- **Azure Cosmos DB (NoSQL)**: garment metadata, wear events, prediction logs, confidence, user corrections.
+
+### AI / Vision
+- **Azure AI Custom Vision** (or Azure ML with custom classifier if scaling later): classify uploaded outfit against known garments.
+- Optional fallback: **Azure AI Vision embeddings** + similarity search if classification confidence is low.
+
+### Identity & Security
+- **Microsoft Entra External ID (or B2C equivalent)** for sign-in.
+- **Managed Identity + Key Vault** for secrets.
+- SAS or short-lived signed access patterns for image access.
+
+### Observability
+- **Application Insights + Log Analytics** for request tracing, prediction confidence monitoring, and error diagnostics.
+
+---
+
+## 5) End-to-end phone-testable flow
+
+1. User opens mobile web app (home screen shortcut/PWA).
+2. User adds garment in “Catalog”:
+   - Capture/upload multiple photos
+   - Add name/tag (e.g., “Red Floral Dress”)
+3. Daily usage:
+   - Upload/capture current outfit photo
+   - Backend stores image in Blob
+   - AI service returns top prediction + confidence
+4. App shows:
+   - “We think this is Red Floral Dress (91%)”
+   - Buttons: **Confirm** / **Choose different item**
+5. On confirm:
+   - Create wear event in Cosmos DB
+   - Increment garment wear count
+6. Dashboard shows:
+   - Total wears by garment
+   - Last worn date
+   - Most/least worn
+
+This flow is fully testable on phone via browser without native app development.
+
+---
+
+## 6) Minimal data model
+
+### `Garment`
+- `id`
+- `userId`
+- `name`
+- `category` (dress/top/etc.)
+- `catalogImageUrls[]`
+- `wearCount`
+- `createdAt`
+- `updatedAt`
+
+### `WearEvent`
+- `id`
+- `userId`
+- `garmentId`
+- `outfitImageUrl`
+- `predictedGarmentId`
+- `confidence`
+- `confirmed` (bool)
+- `createdAt`
+
+### `PredictionAudit` (optional but recommended)
+- `id`
+- `userId`
+- `inputImageUrl`
+- `topKPredictions[]`
+- `userFinalSelection`
+- `createdAt`
+
+---
+
+## 7) API surface (MVP)
+
+- `POST /garments` (create garment + catalog photos)
+- `GET /garments`
+- `POST /wear/predict` (upload daily image, return top matches)
+- `POST /wear/confirm` (confirm/correct match and increment count)
+- `GET /stats/summary`
+
+---
+
+## 8) Accuracy and UX guardrails (important)
+
+- Never auto-increment below confidence threshold (e.g., <85%).
+- Always show top 3 matches when confidence is medium.
+- Capture user correction and use it for periodic retraining.
+- Enforce onboarding photo guidance (good light, front/full view, plain background).
+
+---
+
+## 9) Suggested phased plan
+
+### Phase 1 (2–3 weeks): MVP
+- Catalog + daily upload + confirm + wear counter + simple dashboard.
+
+### Phase 2
+- Retraining pipeline from corrections.
+- Duplicate/near-similar dress disambiguation.
+- Monthly insights (“not worn in 60 days”).
+
+### Phase 3
+- Cost optimization, archival policy, recommendation features.
+
+---
+
+## 10) Cost-aware Azure setup for MVP
+
+- Static Web Apps (low-cost front-end hosting)
+- Functions Consumption plan
+- Blob Storage hot tier (small volume initially)
+- Cosmos DB serverless (or small RU baseline)
+- Custom Vision small training/prediction usage
+- Application Insights with sampling
+
+This keeps initial cost low while preserving a production-shaped architecture.
