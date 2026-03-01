@@ -120,7 +120,7 @@ Configure an Azure Blob Storage account and container to store garment catalog p
 
 ### Issue #4: Setup Cosmos DB & Data Models (Garment, WearEvent, PredictionAudit)
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 Provision an Azure Cosmos DB (NoSQL, serverless) account and create the containers for the three core data models defined in the HLD. These models form the data backbone of the wardrobe tracker.
@@ -488,7 +488,7 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 | #1.5 | Provision Azure Resource Group & Baseline Infrastructure (Bicep + OIDC) | MVP | [x] Done |
 | #2 | Setup Azure Functions Backend API | MVP | [x] Done |
 | #3 | Setup Azure Blob Storage for Images | MVP | [x] Done |
-| #4 | Setup Cosmos DB & Data Models | MVP | [ ] Open |
+| #4 | Setup Cosmos DB & Data Models | MVP | [x] Done |
 | #5 | Implement `POST /garments` | MVP | [ ] Open |
 | #6 | Implement `GET /garments` | MVP | [ ] Open |
 | #7 | Implement `POST /wear/predict` | MVP | [ ] Open |
