@@ -171,7 +171,7 @@ Implement the `POST /garments` endpoint that allows users to add a new garment t
 
 ### Issue #6: Implement `GET /garments` — List Garments
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 Implement the `GET /garments` endpoint that returns a paginated list of all garments belonging to the authenticated user. The response should include enough information to render a garment thumbnail list (name, category, primary image URL, wear count).
@@ -490,7 +490,7 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 | #3 | Setup Azure Blob Storage for Images | MVP | [x] Done |
 | #4 | Setup Cosmos DB & Data Models | MVP | [x] Done |
 | #5 | Implement `POST /garments` | MVP | [x] Done |
-| #6 | Implement `GET /garments` | MVP | [ ] Open |
+| #6 | Implement `GET /garments` | MVP | [x] Done |
 | #7 | Implement `POST /wear/predict` | MVP | [ ] Open |
 | #8 | Implement `POST /wear/confirm` | MVP | [ ] Open |
 | #9 | Implement `GET /stats/summary` | MVP | [ ] Open |

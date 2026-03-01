@@ -63,7 +63,11 @@ jobs:
         run: az bicep build --file infra/main.bicep
 
       # Run a what-if to surface any destructive changes before they happen.
+      # continue-on-error: the What-If API may return errors for certain
+      # resource types (e.g. Cosmos DB serverless) that do not affect the
+      # actual deployment.
       - name: Deployment what-if
+        continue-on-error: true
         run: |
           az deployment sub what-if \
             --location westeurope \
