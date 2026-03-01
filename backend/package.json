@@ -14,7 +14,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@azure/functions": "^4.6.0"
+    "@azure/functions": "^4.6.0",
+    "@azure/identity": "^4.13.0",
+    "@azure/storage-blob": "^12.31.0"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",

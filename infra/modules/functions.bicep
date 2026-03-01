@@ -22,6 +22,12 @@ param tags object
 @description('Default hostname of the Static Web App (used for CORS).')
 param staticWebAppHostname string
 
+@description('Name of the Blob Storage account used for garment/outfit images.')
+param blobStorageAccountName string
+
+@description('Name of the blob container used for images.')
+param blobContainerName string
+
 // ── Storage Account (required by Functions runtime) ──────────────────────────
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -59,6 +65,9 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
   location: location
   tags: tags
   kind: 'functionapp'
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     serverFarmId: hostingPlan.id
     httpsOnly: true
@@ -102,6 +111,14 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
           value: '1'
         }
+        {
+          name: 'BLOB_ACCOUNT_NAME'
+          value: blobStorageAccountName
+        }
+        {
+          name: 'BLOB_CONTAINER_NAME'
+          value: blobContainerName
+        }
       ]
     }
   }
@@ -114,3 +131,6 @@ output functionAppName string = functionApp.name
 
 @description('Default hostname of the Function App.')
 output functionAppHostname string = functionApp.properties.defaultHostName
+
+@description('Principal ID of the Function App System-assigned Managed Identity.')
+output functionAppPrincipalId string = functionApp.identity.principalId
