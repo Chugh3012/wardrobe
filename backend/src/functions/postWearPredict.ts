@@ -13,6 +13,7 @@ import {
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
 import { isValidImageUrl } from "../services/urlValidator.js";
+import { trackEvent, trackMetric, trackException } from "../services/telemetryService.js";
 
 interface PostWearPredictBody {
   outfitImageUrl?: unknown;
@@ -128,6 +129,17 @@ export async function postWearPredict(
       `Predicted ${results.length} garment(s) for user ${userId}, audit ${audit.id}, source=${source}, level=${confidenceLevel}`
     );
 
+    // ── Custom telemetry (Issue #14) ──────────────────────────────────────
+    trackMetric("PredictionConfidence", topConfidence);
+    trackEvent(
+      "PredictionCompleted",
+      { userId, source, confidenceLevel, auditId: audit.id },
+      { topConfidence, candidateCount: results.length }
+    );
+    if (source === "embedding_fallback") {
+      trackEvent("PredictionFallbackTriggered", { userId, auditId: audit.id }, { topConfidence });
+    }
+
     return {
       status: 200,
       jsonBody: {
@@ -139,6 +151,10 @@ export async function postWearPredict(
     };
   } catch (err) {
     context.log(`Error in wear/predict: ${err}`);
+    trackException(
+      err instanceof Error ? err : new Error(String(err)),
+      { endpoint: "POST /wear/predict", userId: userId ?? "unknown" }
+    );
     return {
       status: 500,
       jsonBody: { error: "Failed to predict garments. Check server logs." },

@@ -9,6 +9,7 @@ import {
   extractUserId,
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
+import { trackException } from "../services/telemetryService.js";
 
 /**
  * GET /api/garments
@@ -74,6 +75,10 @@ export async function getGarments(
     };
   } catch (err) {
     context.log(`Error listing garments: ${err}`);
+    trackException(
+      err instanceof Error ? err : new Error(String(err)),
+      { endpoint: "GET /garments", userId: userId ?? "unknown" }
+    );
     return {
       status: 500,
       jsonBody: { error: "Failed to list garments. Check server logs." },

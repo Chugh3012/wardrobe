@@ -84,6 +84,18 @@ module aiServices 'modules/ai-services.bicep' = {
   }
 }
 
+// ── Observability (Application Insights & Log Analytics — Issue #14) ───────────
+
+module observability 'modules/observability.bicep' = {
+  name: 'observability-${environmentName}'
+  scope: rg
+  params: {
+    location: location
+    environmentName: environmentName
+    tags: tags
+  }
+}
+
 // ── Azure Functions Backend API ───────────────────────────────────────────────
 
 var blobStorageAccountName = 'stwardrobeimg${environmentName}'
@@ -107,6 +119,7 @@ module functions 'modules/functions.bicep' = {
     cvPredictionEndpoint: aiServices.outputs.cvPredictionEndpoint
     aiVisionEndpoint: aiServices.outputs.aiVisionEndpoint
     includeCorsLocalhost: environmentName == 'dev' // S11: only allow localhost CORS in dev
+    appInsightsConnectionString: observability.outputs.appInsightsConnectionString
   }
 }
 
@@ -196,6 +209,12 @@ output cvTrainingEndpoint string = aiServices.outputs.cvTrainingEndpoint
 
 @description('Custom Vision Prediction endpoint.')
 output cvPredictionEndpoint string = aiServices.outputs.cvPredictionEndpoint
+
+@description('Application Insights resource name.')
+output appInsightsName string = observability.outputs.appInsightsName
+
+@description('Log Analytics Workspace name.')
+output logAnalyticsWorkspaceName string = observability.outputs.logAnalyticsWorkspaceName
 
 @description('AI Vision endpoint for image embeddings.')
 output aiVisionEndpoint string = aiServices.outputs.aiVisionEndpoint

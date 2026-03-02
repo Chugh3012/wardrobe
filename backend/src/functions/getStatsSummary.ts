@@ -10,6 +10,7 @@ import {
   extractUserId,
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
+import { trackException } from "../services/telemetryService.js";
 
 /**
  * GET /api/stats/summary
@@ -101,6 +102,10 @@ export async function getStatsSummary(
     };
   } catch (err) {
     context.log(`Error in stats/summary: ${err}`);
+    trackException(
+      err instanceof Error ? err : new Error(String(err)),
+      { endpoint: "GET /stats/summary", userId: userId ?? "unknown" }
+    );
     return {
       status: 500,
       jsonBody: { error: "Failed to retrieve stats summary. Check server logs." },

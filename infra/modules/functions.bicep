@@ -52,6 +52,9 @@ param aiVisionEndpoint string = ''
 @description('Include http://localhost:5173 CORS origin (dev only, S11).')
 param includeCorsLocalhost bool = false
 
+@description('Application Insights connection string (Issue #14).')
+param appInsightsConnectionString string = ''
+
 // ── Storage Account (required by Functions runtime) ──────────────────────────
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -220,6 +223,14 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'REQUIRE_AUTH'
           value: 'true'
+        }
+        // ── Observability (Issue #14) ───────────────────────────────────────────
+        // Application Insights connection string enables automatic request
+        // tracing, dependency tracking, and custom telemetry via the
+        // Node.js Application Insights SDK.
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: appInsightsConnectionString
         }
       ]
     }

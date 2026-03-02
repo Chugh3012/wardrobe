@@ -67,6 +67,10 @@ The main challenge is not storage/UI, it is **reliable cloth identification from
 
 ### Observability
 - **Application Insights + Log Analytics** for request tracing, prediction confidence monitoring, and error diagnostics.
+- **Backend telemetry service** (`telemetryService.ts`) wraps the `applicationinsights` SDK with property-key sanitization — a deny-list (token, password, secret, authorization, cookie, key, credential) prevents accidental secret leakage in custom event properties. All 6 function handlers are instrumented with `trackEvent`, `trackMetric`, and `trackException`.
+- **Frontend telemetry** (`telemetry.ts`) uses `@microsoft/applicationinsights-web` with `initTelemetry()` at startup and `trackPageView()` on SPA navigation.
+- **Adaptive sampling** configured in `host.json` to manage ingestion costs while preserving exceptions and custom events.
+- **CSP hardened** — `connect-src` allows only the required App Insights ingestion domains.
 
 ---
 
@@ -196,3 +200,10 @@ The application implements defence-in-depth across multiple layers:
 
 ### Cost Protection
 - **Monthly budget alert** — A `Microsoft.Consumption/budgets` resource enforces a $5/month threshold with notifications at 80%, 100%, and 120%.
+
+### Observability Security
+- **Connection string (not secret)** — The App Insights connection string only permits writing telemetry; it cannot read data. Safe to embed in client-side code and app settings.
+- **Property-key sanitization** — Backend `telemetryService.ts` strips sensitive keys (token, password, secret, authorization, cookie, key, credential) from custom event and exception properties before sending to App Insights.
+- **Try/catch isolation** — Both backend and frontend telemetry init are wrapped in try/catch blocks. A telemetry failure (e.g. malformed connection string) never crashes the application.
+- **Adaptive sampling** — `host.json` configures server-side adaptive sampling, excluding Request, Exception, and Event types from being sampled down, while keeping overall ingestion costs low.
+- **Log Analytics RBAC** — `enableLogAccessUsingOnlyResourcePermissions: true` ensures log access is governed by resource-level Azure RBAC, not workspace-level permissions.

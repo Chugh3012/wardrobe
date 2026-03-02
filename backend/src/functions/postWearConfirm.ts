@@ -11,6 +11,7 @@ import {
   extractUserId,
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
+import { trackEvent, trackMetric, trackException } from "../services/telemetryService.js";
 
 interface PostWearConfirmBody {
   predictionAuditId?: unknown;
@@ -149,12 +150,31 @@ export async function postWearConfirm(
       `Wear confirmed for user ${userId}, garment ${confirmedGarmentId}, audit ${predictionAuditId}`
     );
 
+    // ── Custom telemetry (Issue #14) ──────────────────────────────────────
+    trackEvent(
+      "WearConfirmed",
+      { userId, garmentId: confirmedGarmentId, confirmed: String(confirmed) },
+      { confidence }
+    );
+    trackMetric("WearConfirmationRate", confirmed ? 1 : 0);
+    if (!confirmed) {
+      trackEvent(
+        "PredictionCorrected",
+        { userId, auditId: predictionAuditId, predictedGarmentId, correctedGarmentId: confirmedGarmentId },
+        { confidence }
+      );
+    }
+
     return {
       status: 200,
       jsonBody: wearEvent,
     };
   } catch (err) {
     context.log(`Error in wear/confirm: ${err}`);
+    trackException(
+      err instanceof Error ? err : new Error(String(err)),
+      { endpoint: "POST /wear/confirm", userId: userId ?? "unknown" }
+    );
     return {
       status: 500,
       jsonBody: { error: "Failed to confirm wear event. Check server logs." },
