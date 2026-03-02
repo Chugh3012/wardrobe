@@ -11,6 +11,7 @@ import {
   extractUserId,
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
+import { isValidImageUrl } from "../services/urlValidator.js";
 
 /** Minimum number of catalog photos required for onboarding. */
 const MIN_PHOTOS = 3;
@@ -18,7 +19,6 @@ const MIN_PHOTOS = 3;
 const MAX_PHOTOS = 8;
 
 interface PostGarmentBody {
-  userId?: unknown;
   name?: unknown;
   category?: unknown;
   catalogImageUrls?: unknown;
@@ -111,6 +111,18 @@ export async function postGarment(
         error: `'catalogImageUrls' must contain between ${MIN_PHOTOS} and ${MAX_PHOTOS} URLs. Received ${catalogImageUrls.length}.`,
       },
     };
+  }
+
+  for (const url of catalogImageUrls) {
+    if (!isValidImageUrl(url)) {
+      return {
+        status: 400,
+        jsonBody: {
+          error:
+            "Each entry in 'catalogImageUrls' must be a valid HTTPS URL from an allowed domain (*.blob.core.windows.net).",
+        },
+      };
+    }
   }
 
   // ── Create garment ─────────────────────────────────────────────────────────

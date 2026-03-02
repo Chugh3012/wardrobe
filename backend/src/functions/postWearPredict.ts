@@ -12,9 +12,9 @@ import {
   extractUserId,
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
+import { isValidImageUrl } from "../services/urlValidator.js";
 
 interface PostWearPredictBody {
-  userId?: unknown;
   outfitImageUrl?: unknown;
 }
 
@@ -65,6 +65,16 @@ export async function postWearPredict(
     return {
       status: 400,
       jsonBody: { error: "'outfitImageUrl' is required." },
+    };
+  }
+
+  if (!isValidImageUrl(outfitImageUrl)) {
+    return {
+      status: 400,
+      jsonBody: {
+        error:
+          "'outfitImageUrl' must be a valid HTTPS URL from an allowed domain (*.blob.core.windows.net).",
+      },
     };
   }
 
