@@ -257,6 +257,19 @@ describe("POST /api/wear/predict", () => {
     );
   });
 
+  // ── S12: field length limits ────────────────────────────────────────────────
+
+  it("returns 400 when outfitImageUrl exceeds 2048 characters", async () => {
+    const { postWearPredict } = await import("./postWearPredict.js");
+    const longUrl = "https://storageaccount.blob.core.windows.net/" + "a".repeat(2048);
+    const res = await postWearPredict(
+      makeRequest(validBody({ outfitImageUrl: longUrl }), "user-1"),
+      makeContext()
+    );
+    expect(res.status).toBe(400);
+    expect((res.jsonBody as { error: string }).error).toContain("at most 2048");
+  });
+
   // ── S7: SSRF — outfitImageUrl validation ──────────────────────────────────
 
   it("returns 400 when outfitImageUrl uses http instead of https", async () => {

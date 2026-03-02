@@ -296,6 +296,30 @@ describe("POST /api/wear/confirm", () => {
     expect((res.jsonBody as { error: string }).error).toContain("Failed to confirm");
   });
 
+  // ── S12: field length limits ────────────────────────────────────────────────
+
+  it("returns 400 when predictionAuditId exceeds 256 characters", async () => {
+    const { postWearConfirm } = await import("./postWearConfirm.js");
+    const longId = "a".repeat(257);
+    const res = await postWearConfirm(
+      makeRequest(validBody({ predictionAuditId: longId }), "user-1"),
+      makeContext()
+    );
+    expect(res.status).toBe(400);
+    expect((res.jsonBody as { error: string }).error).toContain("at most 256");
+  });
+
+  it("returns 400 when confirmedGarmentId exceeds 256 characters", async () => {
+    const { postWearConfirm } = await import("./postWearConfirm.js");
+    const longId = "a".repeat(257);
+    const res = await postWearConfirm(
+      makeRequest(validBody({ confirmedGarmentId: longId }), "user-1"),
+      makeContext()
+    );
+    expect(res.status).toBe(400);
+    expect((res.jsonBody as { error: string }).error).toContain("at most 256");
+  });
+
   // ── S3: IDOR — garment ownership check ───────────────────────────────────
 
   it("returns 404 when confirmedGarmentId does not belong to the authenticated user", async () => {

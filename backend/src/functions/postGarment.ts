@@ -17,6 +17,10 @@ import { isValidImageUrl } from "../services/urlValidator.js";
 const MIN_PHOTOS = 3;
 /** Maximum number of catalog photos allowed. */
 const MAX_PHOTOS = 8;
+/** Maximum length for garment name. */
+const MAX_NAME_LENGTH = 100;
+/** Maximum length for garment category. */
+const MAX_CATEGORY_LENGTH = 50;
 
 interface PostGarmentBody {
   name?: unknown;
@@ -77,10 +81,22 @@ export async function postGarment(
       jsonBody: { error: "'name' is required." },
     };
   }
+  if (name.length > MAX_NAME_LENGTH) {
+    return {
+      status: 400,
+      jsonBody: { error: `'name' must be at most ${MAX_NAME_LENGTH} characters.` },
+    };
+  }
   if (!category) {
     return {
       status: 400,
       jsonBody: { error: "'category' is required." },
+    };
+  }
+  if (category.length > MAX_CATEGORY_LENGTH) {
+    return {
+      status: 400,
+      jsonBody: { error: `'category' must be at most ${MAX_CATEGORY_LENGTH} characters.` },
     };
   }
 
