@@ -25,6 +25,9 @@ param tags object = {
   managedBy: 'bicep'
 }
 
+@description('Email addresses to receive monthly budget alerts (SEC-P3).')
+param budgetAlertEmails array = []
+
 // ── Resource group ───────────────────────────────────────────────────────────
 
 resource rg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
@@ -99,6 +102,7 @@ module functions 'modules/functions.bicep' = {
     cosmosDbEndpoint: cosmosDb.outputs.cosmosEndpoint
     cosmosDbDatabaseName: cosmosDb.outputs.databaseName
     keyVaultUri: keyVault.outputs.keyVaultUri
+    keyVaultName: keyVault.outputs.keyVaultName
     cvTrainingEndpoint: aiServices.outputs.cvTrainingEndpoint
     cvPredictionEndpoint: aiServices.outputs.cvPredictionEndpoint
     aiVisionEndpoint: aiServices.outputs.aiVisionEndpoint
@@ -139,6 +143,17 @@ module keyVaultRbac 'modules/key-vault-rbac.bicep' = {
   params: {
     keyVaultName: keyVault.outputs.keyVaultName
     functionAppPrincipalId: functions.outputs.functionAppPrincipalId
+  }
+}
+
+// ── Monthly Budget Alert (SEC-P3) ────────────────────────────────────────────
+
+module budget 'modules/budget.bicep' = {
+  name: 'budget-${environmentName}'
+  scope: rg
+  params: {
+    environmentName: environmentName
+    alertEmailAddresses: budgetAlertEmails
   }
 }
 

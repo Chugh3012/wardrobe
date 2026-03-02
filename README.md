@@ -171,3 +171,28 @@ This flow is fully testable on phone via browser without native app development.
 - Application Insights with sampling
 
 This keeps initial cost low while preserving a production-shaped architecture.
+
+---
+
+## 11) Security Architecture
+
+The application implements defence-in-depth across multiple layers:
+
+### Network & Access Control
+- **Azure Static Web Apps EasyAuth** — Entra ID (AAD) authentication enforced at the SWA edge before requests reach the backend.
+- **Function App IP restrictions** — `ipSecurityRestrictions` allow only `AzureCloud` service-tag traffic; all other inbound is denied. SCM site uses the same rules.
+- **No public Cosmos DB / AI endpoints** — Cosmos DB disables local auth (`disableLocalAuth: true`); AI services have `publicNetworkAccess: Disabled`.
+
+### Identity & Secrets
+- **Managed Identity** — The Function App uses a `SystemAssigned` identity for all service-to-service calls (Cosmos DB, Key Vault, Blob Storage).
+- **Key Vault references** — AI service keys are stored in Key Vault and referenced via `@Microsoft.KeyVault(SecretUri=...)` in Function App app settings. No secrets in Bicep outputs or GitHub secrets.
+- **OIDC federation** — GitHub Actions authenticates to Azure via workload identity federation (no long-lived client secret).
+- **Service principal least-privilege** — `Owner` is scoped to `rg-wardrobe-dev` only (downscoped after first deployment).
+
+### Application-Level
+- **Base64 client principal validation** — Auth middleware decodes and validates the `x-ms-client-principal` base64 header injected by EasyAuth, extracting `userId` from the structured JSON. Plain-text header fallback is only accepted when `REQUIRE_AUTH=false` (local development).
+- **Per-user blob scoping** — SAS URLs are scoped to `images/{userId}/` prefixes, preventing cross-user access.
+- **Content-type restrictions** — SAS upload tokens are restricted to allowed image MIME types (jpeg, png, webp, heic, heif).
+
+### Cost Protection
+- **Monthly budget alert** — A `Microsoft.Consumption/budgets` resource enforces a $5/month threshold with notifications at 80%, 100%, and 120%.

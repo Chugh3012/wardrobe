@@ -13,7 +13,7 @@ The GitHub Actions workflow `provision-infra.yml` runs these templates automatic
 | GitHub → Azure auth | **OIDC Workload Identity Federation** — no long-lived client secret ever stored |
 | Service-to-service auth | Managed Identity (added per-resource as issues #2–#13 are implemented) |
 | Secrets at runtime | Azure Key Vault — referenced via `getSecret()` in Bicep modules |
-| RBAC scope | `Owner` on `rg-wardrobe-<env>` (needed for RBAC assignments); downscope after initial setup |
+| RBAC scope | `Owner` scoped to `rg-wardrobe-<env>` only (needed for RBAC assignments) |
 | Bicep parameter files | Zero secrets — only non-sensitive configuration values |
 
 ---
@@ -61,18 +61,10 @@ az ad app federated-credential create \
 SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 SP_OBJECT_ID=$(az ad sp show --id "$APP_ID" --query id -o tsv)
 
-# Owner on the subscription is needed for the first run only
-# (to create the resource group). After the resource group exists you can
-# downscope this to Owner on rg-wardrobe-dev only.
-#
-# NOTE: "Owner" (not just "Contributor") is required because the Bicep
-# templates create RBAC role assignments (e.g. granting the Function App
-# Managed Identity access to Blob Storage and Cosmos DB). The
-# Microsoft.Authorization/roleAssignments/write permission is only
-# available to Owner or User Access Administrator roles.
-#
-# Alternative least-privilege approach: assign Contributor + User Access
-# Administrator on the resource group instead of Owner.
+# ── First run: subscription-wide Owner ────────────────────────────────────
+# The FIRST deployment needs subscription-scope Owner because it creates
+# the resource group itself.  "Owner" (not just "Contributor") is required
+# because the Bicep templates create RBAC role assignments.
 az role assignment create \
   --assignee-object-id "$SP_OBJECT_ID" \
   --assignee-principal-type ServicePrincipal \
@@ -80,8 +72,39 @@ az role assignment create \
   --scope "/subscriptions/$SUBSCRIPTION_ID"
 ```
 
-> **Tip:** After the first successful run the resource group exists. Downscope the role
-> assignment to `/subscriptions/<id>/resourceGroups/rg-wardrobe-dev` for least privilege.
+### 3a. Downscope to resource-group Owner after first deployment (SEC-P2)
+
+After the first successful run the resource group exists. **Immediately** downscope
+the role assignment to the resource group for least-privilege:
+
+```bash
+RG_NAME="rg-wardrobe-dev"
+
+# 1. Grant Owner scoped to the resource group only
+az role assignment create \
+  --assignee-object-id "$SP_OBJECT_ID" \
+  --assignee-principal-type ServicePrincipal \
+  --role Owner \
+  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME"
+
+# 2. Remove the broad subscription-scope Owner assignment
+az role assignment delete \
+  --assignee "$SP_OBJECT_ID" \
+  --role Owner \
+  --scope "/subscriptions/$SUBSCRIPTION_ID"
+
+# 3. Verify only the RG-scoped assignment remains
+az role assignment list \
+  --assignee "$SP_OBJECT_ID" \
+  --output table
+```
+
+> **Important:** The `provision-infra.yml` workflow uses a subscription-scoped
+> deployment (`az deployment sub create`) with `--location`. This still works
+> with RG-scoped Owner because the resource group already exists and the
+> deployment merely updates resources inside it. If you ever need to
+> **recreate** the resource group from scratch, temporarily re-grant
+> subscription-scope Owner.
 
 ### 4. Store the three non-secret identifiers as GitHub Actions secrets
 
@@ -130,19 +153,50 @@ Each subsequent issue (#2 Functions, #3 Blob, #4 Cosmos DB, …) adds a new modu
 
 ---
 
+## Post-deployment: populate Key Vault secrets (SEC-P4)
+
+The Function App references three AI service keys via `@Microsoft.KeyVault(SecretUri=...)`.
+After initial deployment, populate these secrets manually:
+
+```bash
+KV_NAME="kv-wardrobe-dev"   # adjust to match your environment
+
+# Custom Vision Training key
+az keyvault secret set --vault-name "$KV_NAME" \
+  --name "custom-vision-training-key" \
+  --value "$(az cognitiveservices account keys list -n cv-wardrobe-training-dev -g rg-wardrobe-dev --query key1 -o tsv)"
+
+# Custom Vision Prediction key
+az keyvault secret set --vault-name "$KV_NAME" \
+  --name "custom-vision-prediction-key" \
+  --value "$(az cognitiveservices account keys list -n cv-wardrobe-prediction-dev -g rg-wardrobe-dev --query key1 -o tsv)"
+
+# AI Vision (Computer Vision) key
+az keyvault secret set --vault-name "$KV_NAME" \
+  --name "ai-vision-key" \
+  --value "$(az cognitiveservices account keys list -n cv-wardrobe-dev -g rg-wardrobe-dev --query key1 -o tsv)"
+```
+
+> The Function App MI already has the **Key Vault Secrets User** role (assigned in `key-vault-rbac.bicep`),
+> so it can read these secrets at runtime without additional configuration.
+
+---
+
 ## Directory structure
 
 ```
 infra/
-├── main.bicep          # Subscription-scoped entry point
-├── main.bicepparam     # Non-secret parameter values
-├── README.md           # This file
+├── main.bicep              # Subscription-scoped entry point
+├── main.bicepparam         # Non-secret parameter values
+├── README.md               # This file
 └── modules/
-    ├── static-web-app.bicep   # Issue #1 — Azure Static Web App (Free SKU)
-    ├── functions.bicep        # Issue #2 — Azure Functions API (Consumption plan)
-    ├── blob-storage.bicep     # Issue #3 — Blob Storage for images
-    ├── cosmos-db.bicep        # Issue #4 — Cosmos DB NoSQL (serverless)
-    # future modules added per issue:
-    # └── key-vault.bicep       # Issue #13
-    # └── app-insights.bicep    # Issue #14
+    ├── static-web-app.bicep    # Issue #1  — Azure Static Web App (Free SKU)
+    ├── functions.bicep         # Issue #2  — Azure Functions API (Consumption plan)
+    ├── blob-storage.bicep      # Issue #3  — Blob Storage for images
+    ├── cosmos-db.bicep         # Issue #4  — Cosmos DB NoSQL (serverless)
+    ├── cosmos-db-rbac.bicep    # Issue #4  — Cosmos DB RBAC role assignments
+    ├── ai-services.bicep       # Issue #10 — Cognitive Services (Custom Vision + AI Vision)
+    ├── key-vault.bicep         # Issue #13 — Key Vault (RBAC, soft-delete, purge protection)
+    ├── key-vault-rbac.bicep    # Issue #13 — Key Vault RBAC role assignments
+    └── budget.bicep            # Issue #13.6 — Monthly budget alert ($5, 3 tiers)
 ```

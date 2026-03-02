@@ -28,6 +28,15 @@ const MAX_BLOB_NAME_LENGTH = 256;
 /** Only safe characters are allowed in the caller-supplied blobName. */
 const SAFE_BLOB_NAME_RE = /^[a-zA-Z0-9._/-]+$/;
 
+/** Allowed MIME content types for image uploads (SEC-P6). */
+const ALLOWED_CONTENT_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+]);
+
 /**
  * Returns a BlobServiceClient authenticated via Managed Identity (DefaultAzureCredential).
  * Locally, set AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET or use `az login`.
@@ -56,15 +65,16 @@ function getBlobServiceClient(accountName: string): BlobServiceClient {
  * - Requires authentication (S1).
  * - Validates blobName and prefixes it with the userId to prevent path
  *   traversal and cross-user access (S2).
+ * - Restricts upload content-type to image MIME types only (SEC-P6).
  */
 export async function generateSasUrl(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   // ── Parse JSON body ───────────────────────────────────────────────────────
-  let body: { blobName?: unknown };
+  let body: { blobName?: unknown; contentType?: unknown };
   try {
-    body = (await request.json()) as { blobName?: unknown };
+    body = (await request.json()) as { blobName?: unknown; contentType?: unknown };
   } catch {
     return {
       status: 400,
@@ -139,6 +149,18 @@ export async function generateSasUrl(
     };
   }
 
+  // ── Validate content type (SEC-P6) ──────────────────────────────────────
+  const contentType =
+    typeof body.contentType === "string" ? body.contentType.trim().toLowerCase() : "image/jpeg";
+  if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
+    return {
+      status: 400,
+      jsonBody: {
+        error: `Content type '${contentType}' is not allowed. Allowed: ${[...ALLOWED_CONTENT_TYPES].join(", ")}`,
+      },
+    };
+  }
+
   try {
     const client = getBlobServiceClient(blobAccountName);
 
@@ -157,6 +179,7 @@ export async function generateSasUrl(
         startsOn: now,
         expiresOn: uploadExpiry,
         protocol: SASProtocol.Https,
+        contentType, // SEC-P6: restrict upload to declared MIME type
       },
       delegationKey,
       blobAccountName

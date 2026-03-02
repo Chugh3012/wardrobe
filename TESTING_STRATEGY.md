@@ -52,13 +52,34 @@ Every feature in this project must be verifiable from a real phone browser (or i
 - **Checklist items:** `manifest.json` loads without errors, service worker registers, offline shell loads, app icon appears on home screen.
 - **iOS-specific checks:** Verify `apple-touch-icon` meta tags, `apple-mobile-web-app-capable` meta tag, status bar styling, and that the app opens in standalone mode (not a Safari tab).
 
+### 2.6 Security Tests
+
+- **Scope:** Authentication middleware, authorisation boundaries, input validation on security-sensitive paths (SAS tokens, content-type restrictions), and header spoofing resistance.
+- **Tools:** Vitest (co-located `*.test.ts` files), same as unit tests.
+- **Run:** Locally via `npm test` and in CI alongside all other unit tests.
+
+#### What is covered
+
+| Area | Tests | File |
+|------|-------|------|
+| Base64 `x-ms-client-principal` decoding | Valid extraction, UUID userId, missing/null userId, non-string userId, invalid base64, non-JSON payload, unsafe characters, length limits | `authMiddleware.test.ts` |
+| Plain-text header fallback | Ignored when `REQUIRE_AUTH=true`; accepted only when `REQUIRE_AUTH=false`; base64 takes priority when both headers are present | `authMiddleware.test.ts` |
+| SAS content-type restrictions | Default to `image/jpeg`, accept `image/png` / `image/webp`, reject `text/plain` / `application/octet-stream` | `images.test.ts` |
+| Per-function auth enforcement | Every function test file uses `encodeClientPrincipal()` helper to supply a valid base64 `x-ms-client-principal` header | `*.test.ts` (all 7 function files) |
+
+#### Test patterns
+
+- **`encodeClientPrincipal(userId)`** — A shared helper in each test file that builds a `ClientPrincipal` JSON object and base64-encodes it. This mirrors the header that Azure Static Web Apps EasyAuth injects.
+- **Negative tests** — Specifically test spoofed, malformed, and missing auth headers to ensure the middleware rejects them.
+- **Environment-aware tests** — `REQUIRE_AUTH` environment variable is toggled in tests to verify both strict and relaxed modes.
+
 ---
 
 ## 3) Testing Tools Summary
 
 | Layer | Tool | Purpose |
 |-------|------|---------|
-| Unit | Jest | Backend & frontend unit tests |
+| Unit | Vitest | Backend & frontend unit tests (incl. security tests) |
 | Integration | Supertest / HTTP client | API endpoint & service integration |
 | E2E (Automated) | Playwright (mobile emulation) | Automated regression in CI |
 | E2E (Manual) | Phone browser + checklist | Milestone phone-test validation |

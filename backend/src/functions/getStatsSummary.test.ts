@@ -29,11 +29,15 @@ vi.mock("@azure/identity", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function encodeClientPrincipal(userId: string): string {
+  return Buffer.from(JSON.stringify({ userId })).toString("base64");
+}
+
 function makeRequest(userId?: string): HttpRequest {
   return new HttpRequest({
     method: "GET",
     url: "http://localhost:7071/api/stats/summary",
-    ...(userId ? { headers: { "x-ms-client-principal-id": userId } } : {}),
+    ...(userId ? { headers: { "x-ms-client-principal": encodeClientPrincipal(userId) } } : {}),
   });
 }
 

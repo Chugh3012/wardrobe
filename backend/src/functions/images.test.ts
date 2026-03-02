@@ -25,6 +25,10 @@ vi.mock("@azure/identity", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function encodeClientPrincipal(userId: string): string {
+  return Buffer.from(JSON.stringify({ userId })).toString("base64");
+}
+
 function makeRequest(body: unknown, headers?: Record<string, string>): HttpRequest {
   return new HttpRequest({
     method: "POST",
@@ -32,6 +36,11 @@ function makeRequest(body: unknown, headers?: Record<string, string>): HttpReque
     headers: { "Content-Type": "application/json", ...headers },
     body: { string: JSON.stringify(body) },
   });
+}
+
+/** Shorthand: create a request with auth via base64 client principal. */
+function makeAuthRequest(body: unknown, userId: string = "user-1"): HttpRequest {
+  return makeRequest(body, { "x-ms-client-principal": encodeClientPrincipal(userId) });
 }
 
 function makeContext(): InvocationContext {
@@ -65,10 +74,10 @@ describe("POST /api/images/sas-url", () => {
     expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
   });
 
-  it("accepts userId from x-ms-client-principal-id header", async () => {
+  it("accepts userId from base64 x-ms-client-principal header", async () => {
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "test.jpg" }, { "x-ms-client-principal-id": "user-1" }),
+      makeAuthRequest({ blobName: "test.jpg" }),
       makeContext()
     );
     expect(res.status).toBe(200);
@@ -79,7 +88,7 @@ describe("POST /api/images/sas-url", () => {
   it("returns 400 when blobName contains '..' path traversal", async () => {
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "../../secret/file.jpg" }, { "x-ms-client-principal-id": "user-1" }),
+      makeAuthRequest({ blobName: "../../secret/file.jpg" }),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -89,7 +98,7 @@ describe("POST /api/images/sas-url", () => {
   it("returns 400 when blobName contains invalid characters", async () => {
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "blob name with spaces.jpg" }, { "x-ms-client-principal-id": "user-1" }),
+      makeAuthRequest({ blobName: "blob name with spaces.jpg" }),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -100,7 +109,7 @@ describe("POST /api/images/sas-url", () => {
     const { generateSasUrl } = await import("./images.js");
     const longName = "a".repeat(257) + ".jpg";
     const res = await generateSasUrl(
-      makeRequest({ blobName: longName }, { "x-ms-client-principal-id": "user-1" }),
+      makeAuthRequest({ blobName: longName }),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -110,7 +119,7 @@ describe("POST /api/images/sas-url", () => {
   it("prefixes blobName with userId for per-user scoping", async () => {
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "garments/test.jpg" }, { "x-ms-client-principal-id": "user-1" }),
+      makeAuthRequest({ blobName: "garments/test.jpg" }),
       makeContext()
     );
     expect(res.status).toBe(200);
@@ -124,7 +133,7 @@ describe("POST /api/images/sas-url", () => {
     vi.stubEnv("BLOB_ACCOUNT_NAME", "");
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "test.jpg" }, { "x-ms-client-principal-id": "user-1" }),
+      makeAuthRequest({ blobName: "test.jpg" }),
       makeContext()
     );
     expect(res.status).toBe(503);
@@ -132,20 +141,20 @@ describe("POST /api/images/sas-url", () => {
 
   it("returns 400 when blobName is missing", async () => {
     const { generateSasUrl } = await import("./images.js");
-    const res = await generateSasUrl(makeRequest({}, { "x-ms-client-principal-id": "user-1" }), makeContext());
+    const res = await generateSasUrl(makeAuthRequest({}), makeContext());
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when blobName is not a string", async () => {
     const { generateSasUrl } = await import("./images.js");
-    const res = await generateSasUrl(makeRequest({ blobName: 42 }, { "x-ms-client-principal-id": "user-1" }), makeContext());
+    const res = await generateSasUrl(makeAuthRequest({ blobName: 42 }), makeContext());
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when blobName is an empty string", async () => {
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "   " }, { "x-ms-client-principal-id": "user-1" }),
+      makeAuthRequest({ blobName: "   " }),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -166,7 +175,7 @@ describe("POST /api/images/sas-url", () => {
   it("returns 200 with uploadUrl and readUrl on success", async () => {
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "garments/test.jpg" }, { "x-ms-client-principal-id": "user-1" }),
+      makeAuthRequest({ blobName: "garments/test.jpg" }),
       makeContext()
     );
 
@@ -184,9 +193,57 @@ describe("POST /api/images/sas-url", () => {
     mockGetUserDelegationKey.mockRejectedValue(new Error("Auth failed"));
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "test.jpg" }, { "x-ms-client-principal-id": "user-1" }),
+      makeAuthRequest({ blobName: "test.jpg" }),
       makeContext()
     );
     expect(res.status).toBe(500);
+  });
+
+  // ── SEC-P6: Content-type restrictions ─────────────────────────────────────
+
+  it("defaults to image/jpeg when contentType is not provided", async () => {
+    const { generateSasUrl } = await import("./images.js");
+    const res = await generateSasUrl(
+      makeAuthRequest({ blobName: "test.jpg" }),
+      makeContext()
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("accepts image/png content type", async () => {
+    const { generateSasUrl } = await import("./images.js");
+    const res = await generateSasUrl(
+      makeAuthRequest({ blobName: "test.png", contentType: "image/png" }),
+      makeContext()
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("accepts image/webp content type", async () => {
+    const { generateSasUrl } = await import("./images.js");
+    const res = await generateSasUrl(
+      makeAuthRequest({ blobName: "test.webp", contentType: "image/webp" }),
+      makeContext()
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("rejects disallowed content type", async () => {
+    const { generateSasUrl } = await import("./images.js");
+    const res = await generateSasUrl(
+      makeAuthRequest({ blobName: "test.txt", contentType: "text/plain" }),
+      makeContext()
+    );
+    expect(res.status).toBe(400);
+    expect((res.jsonBody as { error: string }).error).toContain("not allowed");
+  });
+
+  it("rejects application/octet-stream content type", async () => {
+    const { generateSasUrl } = await import("./images.js");
+    const res = await generateSasUrl(
+      makeAuthRequest({ blobName: "test.bin", contentType: "application/octet-stream" }),
+      makeContext()
+    );
+    expect(res.status).toBe(400);
   });
 });
