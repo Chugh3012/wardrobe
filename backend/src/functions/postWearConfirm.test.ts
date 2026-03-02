@@ -37,11 +37,14 @@ vi.mock("@azure/identity", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function makeRequest(body: unknown): HttpRequest {
+function makeRequest(body: unknown, userId?: string): HttpRequest {
   return new HttpRequest({
     method: "POST",
     url: "http://localhost:7071/api/wear/confirm",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(userId ? { "x-ms-client-principal-id": userId } : {}),
+    },
     body: { string: JSON.stringify(body) },
   });
 }
@@ -52,7 +55,6 @@ function makeContext(): InvocationContext {
 
 function validBody(overrides: Record<string, unknown> = {}) {
   return {
-    userId: "user-1",
     predictionAuditId: "audit-1",
     confirmedGarmentId: "g1",
     confirmed: true,
@@ -132,7 +134,7 @@ describe("POST /api/wear/confirm", () => {
     mockReplace.mockResolvedValueOnce({ resource: { ...sampleGarment(), wearCount: 4 } });
 
     const { postWearConfirm } = await import("./postWearConfirm.js");
-    const res = await postWearConfirm(makeRequest(validBody()), makeContext());
+    const res = await postWearConfirm(makeRequest(validBody(), "user-1"), makeContext());
 
     expect(res.status).toBe(200);
     expect(res.jsonBody).toEqual(sampleWearEvent());
@@ -147,9 +149,7 @@ describe("POST /api/wear/confirm", () => {
     mockReplace.mockResolvedValueOnce({ resource: { ...sampleGarment(), wearCount: 4 } });
 
     const { postWearConfirm } = await import("./postWearConfirm.js");
-    await postWearConfirm(makeRequest(validBody()), makeContext());
-
-    // WearEvent created
+    await postWearConfirm(makeRequest(validBody(), "user-1"), makeContext());
     expect(mockCreate).toHaveBeenCalledOnce();
     const wearEvt = mockCreate.mock.calls[0][0];
     expect(wearEvt.userId).toBe("user-1");
@@ -185,7 +185,7 @@ describe("POST /api/wear/confirm", () => {
 
     const { postWearConfirm } = await import("./postWearConfirm.js");
     const res = await postWearConfirm(
-      makeRequest(validBody({ confirmedGarmentId: "g2", confirmed: false })),
+      makeRequest(validBody({ confirmedGarmentId: "g2", confirmed: false }), "user-1"),
       makeContext()
     );
 
@@ -219,30 +219,20 @@ describe("POST /api/wear/confirm", () => {
 
   // ── Missing required fields ───────────────────────────────────────────────
 
-  it("returns 400 when userId is missing", async () => {
+  it("returns 401 when auth header is missing", async () => {
     const { postWearConfirm } = await import("./postWearConfirm.js");
     const res = await postWearConfirm(
-      makeRequest(validBody({ userId: "" })),
+      makeRequest(validBody()),
       makeContext()
     );
-    expect(res.status).toBe(400);
-    expect((res.jsonBody as { error: string }).error).toContain("userId");
-  });
-
-  it("returns 400 when userId is not a string", async () => {
-    const { postWearConfirm } = await import("./postWearConfirm.js");
-    const res = await postWearConfirm(
-      makeRequest(validBody({ userId: 42 })),
-      makeContext()
-    );
-    expect(res.status).toBe(400);
-    expect((res.jsonBody as { error: string }).error).toContain("userId");
+    expect(res.status).toBe(401);
+    expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
   });
 
   it("returns 400 when predictionAuditId is missing", async () => {
     const { postWearConfirm } = await import("./postWearConfirm.js");
     const res = await postWearConfirm(
-      makeRequest(validBody({ predictionAuditId: "" })),
+      makeRequest(validBody({ predictionAuditId: "" }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -252,7 +242,7 @@ describe("POST /api/wear/confirm", () => {
   it("returns 400 when confirmedGarmentId is missing", async () => {
     const { postWearConfirm } = await import("./postWearConfirm.js");
     const res = await postWearConfirm(
-      makeRequest(validBody({ confirmedGarmentId: "" })),
+      makeRequest(validBody({ confirmedGarmentId: "" }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -262,7 +252,7 @@ describe("POST /api/wear/confirm", () => {
   it("returns 400 when confirmed is not a boolean", async () => {
     const { postWearConfirm } = await import("./postWearConfirm.js");
     const res = await postWearConfirm(
-      makeRequest(validBody({ confirmed: "yes" })),
+      makeRequest(validBody({ confirmed: "yes" }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -275,7 +265,7 @@ describe("POST /api/wear/confirm", () => {
     mockRead.mockResolvedValueOnce({ resource: undefined });
 
     const { postWearConfirm } = await import("./postWearConfirm.js");
-    const res = await postWearConfirm(makeRequest(validBody()), makeContext());
+    const res = await postWearConfirm(makeRequest(validBody(), "user-1"), makeContext());
 
     expect(res.status).toBe(404);
     expect((res.jsonBody as { error: string }).error).toContain("PredictionAudit not found");
@@ -287,7 +277,7 @@ describe("POST /api/wear/confirm", () => {
     mockRead.mockRejectedValueOnce(new Error("Cosmos DB unavailable"));
 
     const { postWearConfirm } = await import("./postWearConfirm.js");
-    const res = await postWearConfirm(makeRequest(validBody()), makeContext());
+    const res = await postWearConfirm(makeRequest(validBody(), "user-1"), makeContext());
 
     expect(res.status).toBe(500);
     expect((res.jsonBody as { error: string }).error).toContain("Failed to confirm");
@@ -300,7 +290,7 @@ describe("POST /api/wear/confirm", () => {
     mockCreate.mockRejectedValueOnce(new Error("Cosmos DB write failed"));
 
     const { postWearConfirm } = await import("./postWearConfirm.js");
-    const res = await postWearConfirm(makeRequest(validBody()), makeContext());
+    const res = await postWearConfirm(makeRequest(validBody(), "user-1"), makeContext());
 
     expect(res.status).toBe(500);
     expect((res.jsonBody as { error: string }).error).toContain("Failed to confirm");
@@ -312,7 +302,7 @@ describe("POST /api/wear/confirm", () => {
     const { postWearConfirm } = await import("./postWearConfirm.js");
     const longId = "a".repeat(257);
     const res = await postWearConfirm(
-      makeRequest(validBody({ predictionAuditId: longId })),
+      makeRequest(validBody({ predictionAuditId: longId }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -323,7 +313,7 @@ describe("POST /api/wear/confirm", () => {
     const { postWearConfirm } = await import("./postWearConfirm.js");
     const longId = "a".repeat(257);
     const res = await postWearConfirm(
-      makeRequest(validBody({ confirmedGarmentId: longId })),
+      makeRequest(validBody({ confirmedGarmentId: longId }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -340,7 +330,7 @@ describe("POST /api/wear/confirm", () => {
 
     const { postWearConfirm } = await import("./postWearConfirm.js");
     const res = await postWearConfirm(
-      makeRequest(validBody({ confirmedGarmentId: "other-users-garment" })),
+      makeRequest(validBody({ confirmedGarmentId: "other-users-garment" }), "user-1"),
       makeContext()
     );
 

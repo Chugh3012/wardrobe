@@ -31,11 +31,14 @@ vi.mock("@azure/identity", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function makeRequest(body: unknown): HttpRequest {
+function makeRequest(body: unknown, userId?: string): HttpRequest {
   return new HttpRequest({
     method: "POST",
     url: "http://localhost:7071/api/wear/predict",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(userId ? { "x-ms-client-principal-id": userId } : {}),
+    },
     body: { string: JSON.stringify(body) },
   });
 }
@@ -46,7 +49,6 @@ function makeContext(): InvocationContext {
 
 function validBody(overrides: Record<string, unknown> = {}) {
   return {
-    userId: "user-1",
     outfitImageUrl: "https://storageaccount.blob.core.windows.net/outfits/photo1.jpg",
     ...overrides,
   };
@@ -112,7 +114,7 @@ describe("POST /api/wear/predict", () => {
     mockCreate.mockResolvedValue({ resource: auditDoc });
 
     const { postWearPredict } = await import("./postWearPredict.js");
-    const res = await postWearPredict(makeRequest(validBody()), makeContext());
+    const res = await postWearPredict(makeRequest(validBody(), "user-1"), makeContext());
 
     expect(res.status).toBe(200);
 
@@ -158,7 +160,7 @@ describe("POST /api/wear/predict", () => {
     });
 
     const { postWearPredict } = await import("./postWearPredict.js");
-    await postWearPredict(makeRequest(validBody()), makeContext());
+    await postWearPredict(makeRequest(validBody(), "user-1"), makeContext());
 
     expect(mockCreate).toHaveBeenCalledOnce();
     const created = mockCreate.mock.calls[0][0];
@@ -186,30 +188,20 @@ describe("POST /api/wear/predict", () => {
 
   // ── Missing required fields ───────────────────────────────────────────────
 
-  it("returns 400 when userId is missing", async () => {
+  it("returns 401 when auth header is missing", async () => {
     const { postWearPredict } = await import("./postWearPredict.js");
     const res = await postWearPredict(
-      makeRequest(validBody({ userId: "" })),
+      makeRequest(validBody()),
       makeContext()
     );
-    expect(res.status).toBe(400);
-    expect((res.jsonBody as { error: string }).error).toContain("userId");
-  });
-
-  it("returns 400 when userId is not a string", async () => {
-    const { postWearPredict } = await import("./postWearPredict.js");
-    const res = await postWearPredict(
-      makeRequest(validBody({ userId: 42 })),
-      makeContext()
-    );
-    expect(res.status).toBe(400);
-    expect((res.jsonBody as { error: string }).error).toContain("userId");
+    expect(res.status).toBe(401);
+    expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
   });
 
   it("returns 400 when outfitImageUrl is missing", async () => {
     const { postWearPredict } = await import("./postWearPredict.js");
     const res = await postWearPredict(
-      makeRequest(validBody({ outfitImageUrl: "" })),
+      makeRequest(validBody({ outfitImageUrl: "" }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -219,7 +211,7 @@ describe("POST /api/wear/predict", () => {
   it("returns 400 when outfitImageUrl is not a string", async () => {
     const { postWearPredict } = await import("./postWearPredict.js");
     const res = await postWearPredict(
-      makeRequest(validBody({ outfitImageUrl: 123 })),
+      makeRequest(validBody({ outfitImageUrl: 123 }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -232,7 +224,7 @@ describe("POST /api/wear/predict", () => {
     mockFetchAll.mockResolvedValue({ resources: [] });
 
     const { postWearPredict } = await import("./postWearPredict.js");
-    const res = await postWearPredict(makeRequest(validBody()), makeContext());
+    const res = await postWearPredict(makeRequest(validBody(), "user-1"), makeContext());
 
     expect(res.status).toBe(404);
     expect((res.jsonBody as { error: string }).error).toContain("No garments");
@@ -244,7 +236,7 @@ describe("POST /api/wear/predict", () => {
     mockFetchAll.mockRejectedValue(new Error("Cosmos DB unavailable"));
 
     const { postWearPredict } = await import("./postWearPredict.js");
-    const res = await postWearPredict(makeRequest(validBody()), makeContext());
+    const res = await postWearPredict(makeRequest(validBody(), "user-1"), makeContext());
 
     expect(res.status).toBe(500);
     expect((res.jsonBody as { error: string }).error).toContain(
@@ -257,7 +249,7 @@ describe("POST /api/wear/predict", () => {
     mockCreate.mockRejectedValue(new Error("Cosmos DB write failed"));
 
     const { postWearPredict } = await import("./postWearPredict.js");
-    const res = await postWearPredict(makeRequest(validBody()), makeContext());
+    const res = await postWearPredict(makeRequest(validBody(), "user-1"), makeContext());
 
     expect(res.status).toBe(500);
     expect((res.jsonBody as { error: string }).error).toContain(
@@ -271,7 +263,7 @@ describe("POST /api/wear/predict", () => {
     const { postWearPredict } = await import("./postWearPredict.js");
     const longUrl = "https://storageaccount.blob.core.windows.net/" + "a".repeat(2048);
     const res = await postWearPredict(
-      makeRequest(validBody({ outfitImageUrl: longUrl })),
+      makeRequest(validBody({ outfitImageUrl: longUrl }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -283,7 +275,7 @@ describe("POST /api/wear/predict", () => {
   it("returns 400 when outfitImageUrl uses http instead of https", async () => {
     const { postWearPredict } = await import("./postWearPredict.js");
     const res = await postWearPredict(
-      makeRequest(validBody({ outfitImageUrl: "http://storageaccount.blob.core.windows.net/outfits/photo1.jpg" })),
+      makeRequest(validBody({ outfitImageUrl: "http://storageaccount.blob.core.windows.net/outfits/photo1.jpg" }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -293,7 +285,7 @@ describe("POST /api/wear/predict", () => {
   it("returns 400 when outfitImageUrl is not from blob.core.windows.net", async () => {
     const { postWearPredict } = await import("./postWearPredict.js");
     const res = await postWearPredict(
-      makeRequest(validBody({ outfitImageUrl: "https://evil.example.com/outfit.jpg" })),
+      makeRequest(validBody({ outfitImageUrl: "https://evil.example.com/outfit.jpg" }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -303,7 +295,7 @@ describe("POST /api/wear/predict", () => {
   it("returns 400 when outfitImageUrl targets the Azure IMDS endpoint (SSRF)", async () => {
     const { postWearPredict } = await import("./postWearPredict.js");
     const res = await postWearPredict(
-      makeRequest(validBody({ outfitImageUrl: "https://169.254.169.254/metadata/instance" })),
+      makeRequest(validBody({ outfitImageUrl: "https://169.254.169.254/metadata/instance" }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);

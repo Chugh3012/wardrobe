@@ -8,7 +8,13 @@ describe("authMiddleware", () => {
 
   // ── isAuthRequired ────────────────────────────────────────────────────
 
-  it("returns false by default", async () => {
+  it("returns true by default (secure default)", async () => {
+    const { isAuthRequired } = await import("./authMiddleware.js");
+    expect(isAuthRequired()).toBe(true);
+  });
+
+  it("returns false when REQUIRE_AUTH=false", async () => {
+    vi.stubEnv("REQUIRE_AUTH", "false");
     const { isAuthRequired } = await import("./authMiddleware.js");
     expect(isAuthRequired()).toBe(false);
   });
@@ -30,19 +36,19 @@ describe("authMiddleware", () => {
     });
 
     const { extractUserId } = await import("./authMiddleware.js");
-    const userId = extractUserId(request, { userId: "user-body" });
+    const userId = extractUserId(request);
     expect(userId).toBe("user-abc");
   });
 
-  it("falls back to body userId when header is absent", async () => {
+  it("returns null when header is absent (body fallback removed)", async () => {
     const request = new HttpRequest({
       method: "POST",
       url: "http://localhost/api/garments",
     });
 
     const { extractUserId } = await import("./authMiddleware.js");
-    const userId = extractUserId(request, { userId: "user-body" });
-    expect(userId).toBe("user-body");
+    const userId = extractUserId(request);
+    expect(userId).toBeNull();
   });
 
   it("returns null when neither header nor body provides userId", async () => {
@@ -75,8 +81,8 @@ describe("authMiddleware", () => {
     });
 
     const { extractUserId } = await import("./authMiddleware.js");
-    const userId = extractUserId(request, { userId: "user-body" });
-    expect(userId).toBe("user-body");
+    const userId = extractUserId(request);
+    expect(userId).toBeNull();
   });
 
   // ── unauthorizedResponse ──────────────────────────────────────────────

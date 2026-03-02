@@ -169,6 +169,13 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'KEY_VAULT_URI'
           value: keyVaultUri
         }
+        // ── Auth enforcement (S4 / S5) ──────────────────────────────────────────
+        // Ensures the x-ms-client-principal-id header is always required,
+        // even when the Function App is accessed directly (bypassing SWA).
+        {
+          name: 'REQUIRE_AUTH'
+          value: 'true'
+        }
       ]
     }
   }

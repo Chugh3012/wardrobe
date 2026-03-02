@@ -7,6 +7,11 @@
 //
 // API keys should be stored in Key Vault. The Function App accesses them via
 // Key Vault references in App Settings.
+//
+// NOTE (S10): publicNetworkAccess is set to 'Disabled' on all three accounts.
+// The Function App must reach these services via Private Endpoints or VNet
+// integration. Configure the Function App with VNet integration and create
+// private endpoints for each Cognitive Services account to allow access.
 
 targetScope = 'resourceGroup'
 
@@ -31,7 +36,7 @@ resource cvTraining 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   }
   properties: {
     customSubDomainName: 'cv-train-wardrobe-${environmentName}'
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: 'Disabled'
   }
 }
 
@@ -47,7 +52,7 @@ resource cvPrediction 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   }
   properties: {
     customSubDomainName: 'cv-pred-wardrobe-${environmentName}'
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: 'Disabled'
   }
 }
 
@@ -63,7 +68,7 @@ resource computerVision 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   }
   properties: {
     customSubDomainName: 'cv-vision-wardrobe-${environmentName}'
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: 'Disabled'
   }
 }
 

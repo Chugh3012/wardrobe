@@ -30,13 +30,10 @@ vi.mock("@azure/identity", () => ({
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeRequest(userId?: string): HttpRequest {
-  const url = userId
-    ? `http://localhost:7071/api/garments?userId=${encodeURIComponent(userId)}`
-    : "http://localhost:7071/api/garments";
-
   return new HttpRequest({
     method: "GET",
-    url,
+    url: "http://localhost:7071/api/garments",
+    ...(userId ? { headers: { "x-ms-client-principal-id": userId } } : {}),
   });
 }
 
@@ -142,20 +139,20 @@ describe("GET /api/garments", () => {
 
   // ── Validation ────────────────────────────────────────────────────────────
 
-  it("returns 400 when userId query param is missing", async () => {
+  it("returns 401 when auth header is missing", async () => {
     const { getGarments } = await import("./getGarments.js");
     const res = await getGarments(makeRequest(), makeContext());
 
-    expect(res.status).toBe(400);
-    expect((res.jsonBody as { error: string }).error).toContain("userId");
+    expect(res.status).toBe(401);
+    expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
   });
 
-  it("returns 400 when userId query param is empty", async () => {
+  it("returns 401 when auth header is empty", async () => {
     const { getGarments } = await import("./getGarments.js");
     const res = await getGarments(makeRequest("  "), makeContext());
 
-    expect(res.status).toBe(400);
-    expect((res.jsonBody as { error: string }).error).toContain("userId");
+    expect(res.status).toBe(401);
+    expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
   });
 
   // ── Error handling ────────────────────────────────────────────────────────

@@ -13,7 +13,6 @@ import {
 import { DefaultAzureCredential } from "@azure/identity";
 import {
   extractUserId,
-  isAuthRequired,
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
 
@@ -63,9 +62,9 @@ export async function generateSasUrl(
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   // ── Parse JSON body ───────────────────────────────────────────────────────
-  let body: { blobName?: unknown; userId?: unknown };
+  let body: { blobName?: unknown };
   try {
-    body = (await request.json()) as { blobName?: unknown; userId?: unknown };
+    body = (await request.json()) as { blobName?: unknown };
   } catch {
     return {
       status: 400,
@@ -74,14 +73,10 @@ export async function generateSasUrl(
   }
 
   // ── Authenticate (S1) ────────────────────────────────────────────────────
-  const userId = extractUserId(request, body as Record<string, unknown>);
+  const userId = extractUserId(request);
 
   if (!userId) {
-    if (isAuthRequired()) return unauthorizedResponse();
-    return {
-      status: 400,
-      jsonBody: { error: "'userId' is required." },
-    };
+    return unauthorizedResponse();
   }
 
   // Read env vars at call time so tests can stub them per-test.
