@@ -118,13 +118,7 @@ export async function generateSasUrl(
     };
   }
 
-  if (!SAFE_BLOB_NAME_RE.test(rawBlobName)) {
-    return {
-      status: 400,
-      jsonBody: { error: "'blobName' contains invalid characters." },
-    };
-  }
-
+  // Defense-in-depth: reject traversal before the regex check.
   if (rawBlobName.includes("..")) {
     return {
       status: 400,
@@ -132,8 +126,23 @@ export async function generateSasUrl(
     };
   }
 
+  if (!SAFE_BLOB_NAME_RE.test(rawBlobName)) {
+    return {
+      status: 400,
+      jsonBody: { error: "'blobName' contains invalid characters." },
+    };
+  }
+
   // Prefix with userId so each user is scoped to their own directory.
   const blobName = `${userId}/${rawBlobName}`;
+
+  // Guard against exceeding Azure Blob Storage's 1024-character path limit.
+  if (blobName.length > 1024) {
+    return {
+      status: 400,
+      jsonBody: { error: "Resulting blob path is too long." },
+    };
+  }
 
   try {
     const client = getBlobServiceClient(blobAccountName);
