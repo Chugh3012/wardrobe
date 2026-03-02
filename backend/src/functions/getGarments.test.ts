@@ -4,8 +4,8 @@ import { resetClient } from "../services/cosmosClient.js";
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
-const mockFetchAll = vi.fn();
-const mockQuery = vi.fn().mockReturnValue({ fetchAll: mockFetchAll });
+const mockFetchNext = vi.fn();
+const mockQuery = vi.fn().mockReturnValue({ fetchNext: mockFetchNext });
 
 vi.mock("@azure/cosmos", () => ({
   CosmosClient: vi.fn().mockImplementation(function () {
@@ -33,10 +33,12 @@ function encodeClientPrincipal(userId: string): string {
   return Buffer.from(JSON.stringify({ userId })).toString("base64");
 }
 
-function makeRequest(userId?: string): HttpRequest {
+function makeRequest(userId?: string, query: Record<string, string> = {}): HttpRequest {
+  const params = new URLSearchParams(query);
+  const qs = params.toString();
   return new HttpRequest({
     method: "GET",
-    url: "http://localhost:7071/api/garments",
+    url: `http://localhost:7071/api/garments${qs ? `?${qs}` : ""}`,
     ...(userId ? { headers: { "x-ms-client-principal": encodeClientPrincipal(userId) } } : {}),
   });
 }
@@ -84,7 +86,7 @@ describe("GET /api/garments", () => {
         updatedAt: "2026-01-02T00:00:00.000Z",
       },
     ];
-    mockFetchAll.mockResolvedValue({ resources: garments });
+    mockFetchNext.mockResolvedValue({ resources: garments, continuationToken: undefined });
 
     const { getGarments } = await import("./getGarments.js");
     const res = await getGarments(makeRequest("user-1"), makeContext());
@@ -109,7 +111,7 @@ describe("GET /api/garments", () => {
   });
 
   it("returns 200 with empty array when user has no garments", async () => {
-    mockFetchAll.mockResolvedValue({ resources: [] });
+    mockFetchNext.mockResolvedValue({ resources: [], continuationToken: undefined });
 
     const { getGarments } = await import("./getGarments.js");
     const res = await getGarments(makeRequest("user-1"), makeContext());
@@ -131,7 +133,7 @@ describe("GET /api/garments", () => {
         updatedAt: "2026-01-01T00:00:00.000Z",
       },
     ];
-    mockFetchAll.mockResolvedValue({ resources: garments });
+    mockFetchNext.mockResolvedValue({ resources: garments, continuationToken: undefined });
 
     const { getGarments } = await import("./getGarments.js");
     const res = await getGarments(makeRequest("user-1"), makeContext());
@@ -139,6 +141,82 @@ describe("GET /api/garments", () => {
     expect(res.status).toBe(200);
     const items = (res.jsonBody as { garments: Array<{ thumbnailUrl: string | null }> }).garments;
     expect(items[0].thumbnailUrl).toBeNull();
+  });
+
+  // ── Pagination (F3) ──────────────────────────────────────────────────────
+
+  it("returns continuationToken when more pages exist", async () => {
+    mockFetchNext.mockResolvedValue({
+      resources: [{ id: "g1", userId: "user-1", name: "Shirt", category: "top", catalogImageUrls: [], wearCount: 0 }],
+      continuationToken: "next-page-token",
+    });
+
+    const { getGarments } = await import("./getGarments.js");
+    const res = await getGarments(makeRequest("user-1", { pageSize: "1" }), makeContext());
+
+    expect(res.status).toBe(200);
+    const body = res.jsonBody as { garments: unknown[]; continuationToken?: string };
+    expect(body.garments).toHaveLength(1);
+    expect(body.continuationToken).toBe("next-page-token");
+  });
+
+  it("omits continuationToken when no more pages", async () => {
+    mockFetchNext.mockResolvedValue({ resources: [], continuationToken: undefined });
+
+    const { getGarments } = await import("./getGarments.js");
+    const res = await getGarments(makeRequest("user-1"), makeContext());
+
+    expect(res.status).toBe(200);
+    const body = res.jsonBody as { garments: unknown[]; continuationToken?: string };
+    expect(body.continuationToken).toBeUndefined();
+  });
+
+  it("passes pageSize and continuationToken to the query", async () => {
+    mockFetchNext.mockResolvedValue({ resources: [], continuationToken: undefined });
+
+    const { getGarments } = await import("./getGarments.js");
+    await getGarments(
+      makeRequest("user-1", { pageSize: "5", continuationToken: "tok123" }),
+      makeContext(),
+    );
+
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.stringContaining("SELECT"),
+      }),
+      expect.objectContaining({
+        maxItemCount: 5,
+        continuationToken: "tok123",
+      }),
+    );
+  });
+
+  it("returns 400 when pageSize is not a valid number", async () => {
+    const { getGarments } = await import("./getGarments.js");
+    const res = await getGarments(makeRequest("user-1", { pageSize: "abc" }), makeContext());
+
+    expect(res.status).toBe(400);
+    expect((res.jsonBody as { error: string }).error).toContain("pageSize");
+  });
+
+  it("returns 400 when pageSize is zero", async () => {
+    const { getGarments } = await import("./getGarments.js");
+    const res = await getGarments(makeRequest("user-1", { pageSize: "0" }), makeContext());
+
+    expect(res.status).toBe(400);
+    expect((res.jsonBody as { error: string }).error).toContain("pageSize");
+  });
+
+  it("clamps pageSize to maximum of 100", async () => {
+    mockFetchNext.mockResolvedValue({ resources: [], continuationToken: undefined });
+
+    const { getGarments } = await import("./getGarments.js");
+    await getGarments(makeRequest("user-1", { pageSize: "200" }), makeContext());
+
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ maxItemCount: 100 }),
+    );
   });
 
   // ── Validation ────────────────────────────────────────────────────────────
@@ -161,8 +239,8 @@ describe("GET /api/garments", () => {
 
   // ── Error handling ────────────────────────────────────────────────────────
 
-  it("returns 500 when listGarments throws", async () => {
-    mockFetchAll.mockRejectedValue(new Error("Cosmos DB unavailable"));
+  it("returns 500 when listGarmentsPaginated throws", async () => {
+    mockFetchNext.mockRejectedValue(new Error("Cosmos DB unavailable"));
 
     const { getGarments } = await import("./getGarments.js");
     const res = await getGarments(makeRequest("user-1"), makeContext());

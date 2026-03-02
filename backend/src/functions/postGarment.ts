@@ -24,6 +24,17 @@ const MAX_CATEGORY_LENGTH = 50;
 /** Maximum length for URL fields (S12). */
 const MAX_URL_LENGTH = 2048;
 
+/** Allowed garment categories — must match the frontend CATEGORIES array (F2). */
+const ALLOWED_CATEGORIES = new Set([
+  "dress",
+  "top",
+  "bottom",
+  "outerwear",
+  "shoes",
+  "accessory",
+  "other",
+]);
+
 interface PostGarmentBody {
   name?: unknown;
   category?: unknown;
@@ -98,6 +109,14 @@ export async function postGarment(
     return {
       status: 400,
       jsonBody: { error: `'category' must be at most ${MAX_CATEGORY_LENGTH} characters.` },
+    };
+  }
+  if (!ALLOWED_CATEGORIES.has(category.toLowerCase())) {
+    return {
+      status: 400,
+      jsonBody: {
+        error: `'category' must be one of: ${[...ALLOWED_CATEGORIES].join(", ")}. Received '${category}'.`,
+      },
     };
   }
 

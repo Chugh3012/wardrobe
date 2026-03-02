@@ -70,37 +70,18 @@ function sampleGarments() {
   ];
 }
 
-function sampleWearEvents() {
+/** F4: Aggregated wear-event summaries (replaces individual events). */
+function sampleWearAggregations() {
   return [
     {
-      id: "evt-1",
-      userId: "user-1",
       garmentId: "g1",
-      outfitImageUrl: "https://blob.example.com/outfits/p1.jpg",
-      predictedGarmentId: "g1",
-      confidence: 0.95,
-      confirmed: true,
-      createdAt: "2026-02-15T00:00:00.000Z",
+      eventCount: 2,
+      lastWornDate: "2026-02-15T00:00:00.000Z",
     },
     {
-      id: "evt-2",
-      userId: "user-1",
-      garmentId: "g1",
-      outfitImageUrl: "https://blob.example.com/outfits/p2.jpg",
-      predictedGarmentId: "g1",
-      confidence: 0.90,
-      confirmed: true,
-      createdAt: "2026-02-10T00:00:00.000Z",
-    },
-    {
-      id: "evt-3",
-      userId: "user-1",
       garmentId: "g2",
-      outfitImageUrl: "https://blob.example.com/outfits/p3.jpg",
-      predictedGarmentId: "g2",
-      confidence: 0.88,
-      confirmed: true,
-      createdAt: "2026-01-10T00:00:00.000Z",
+      eventCount: 1,
+      lastWornDate: "2026-01-10T00:00:00.000Z",
     },
   ];
 }
@@ -122,10 +103,10 @@ describe("GET /api/stats/summary", () => {
   // ── Happy path ────────────────────────────────────────────────────────────
 
   it("returns 200 with full stats summary", async () => {
-    // listGarments then listWearEvents (both use query → fetchAll)
+    // listGarments then getWearEventAggregations (both use query → fetchAll)
     mockFetchAll
       .mockResolvedValueOnce({ resources: sampleGarments() })
-      .mockResolvedValueOnce({ resources: sampleWearEvents() });
+      .mockResolvedValueOnce({ resources: sampleWearAggregations() });
 
     const { getStatsSummary } = await import("./getStatsSummary.js");
     const res = await getStatsSummary(makeRequest("user-1"), makeContext());
@@ -205,7 +186,7 @@ describe("GET /api/stats/summary", () => {
     const garments = [sampleGarments()[0]]; // only g1
     mockFetchAll
       .mockResolvedValueOnce({ resources: garments })
-      .mockResolvedValueOnce({ resources: [] }); // no wear events
+      .mockResolvedValueOnce({ resources: [] }); // no aggregations
 
     const { getStatsSummary } = await import("./getStatsSummary.js");
     const res = await getStatsSummary(makeRequest("user-1"), makeContext());

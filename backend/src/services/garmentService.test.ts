@@ -6,7 +6,8 @@ import { resetClient } from "./cosmosClient.js";
 const mockCreate = vi.fn();
 const mockRead = vi.fn();
 const mockFetchAll = vi.fn();
-const mockQuery = vi.fn(() => ({ fetchAll: mockFetchAll }));
+const mockFetchNext = vi.fn();
+const mockQuery = vi.fn(() => ({ fetchAll: mockFetchAll, fetchNext: mockFetchNext }));
 
 vi.mock("@azure/cosmos", () => ({
   CosmosClient: vi.fn().mockImplementation(function () {
@@ -120,5 +121,58 @@ describe("garmentService", () => {
       query: "SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC",
       parameters: [{ name: "@userId", value: "user-1" }],
     });
+  });
+
+  // ── listGarmentsPaginated (F3) ────────────────────────────────────────────
+
+  it("listGarmentsPaginated returns garments with a continuation token", async () => {
+    const garments = [{ id: "1", userId: "user-1", name: "Blue Shirt" }];
+    mockFetchNext.mockResolvedValue({ resources: garments, continuationToken: "tok" });
+
+    const { listGarmentsPaginated } = await import("./garmentService.js");
+    const result = await listGarmentsPaginated("user-1", 10);
+
+    expect(result.garments).toEqual(garments);
+    expect(result.continuationToken).toBe("tok");
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ query: expect.stringContaining("SELECT") }),
+      expect.objectContaining({ maxItemCount: 10 }),
+    );
+  });
+
+  it("listGarmentsPaginated defaults to pageSize 20", async () => {
+    mockFetchNext.mockResolvedValue({ resources: [], continuationToken: undefined });
+
+    const { listGarmentsPaginated } = await import("./garmentService.js");
+    await listGarmentsPaginated("user-1");
+
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ maxItemCount: 20 }),
+    );
+  });
+
+  it("listGarmentsPaginated clamps pageSize to 100", async () => {
+    mockFetchNext.mockResolvedValue({ resources: [], continuationToken: undefined });
+
+    const { listGarmentsPaginated } = await import("./garmentService.js");
+    await listGarmentsPaginated("user-1", 500);
+
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ maxItemCount: 100 }),
+    );
+  });
+
+  it("listGarmentsPaginated passes continuationToken to query", async () => {
+    mockFetchNext.mockResolvedValue({ resources: [], continuationToken: undefined });
+
+    const { listGarmentsPaginated } = await import("./garmentService.js");
+    await listGarmentsPaginated("user-1", 10, "my-token");
+
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ continuationToken: "my-token" }),
+    );
   });
 });

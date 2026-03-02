@@ -429,38 +429,38 @@ All four frontend pages (Catalog, AddGarment, DailyUpload, Dashboard) render har
 - **Impact:** The E2E acceptance flow (Issue #15) cannot pass. Users cannot actually use the app.
 - **Fix:** Wire each page to the backend API using `fetch` through the SWA proxy (`/api/…`).
 
-**F2. `POST /garments` — `category` accepts any string (no enum validation)**
+**F2. `POST /garments` — `category` accepts any string (no enum validation)** ✅
 The acceptance criteria specify categories like "dress", "top", "bottom", "jacket". The backend accepts any non-empty string.
-- **File:** `backend/src/functions/postGarment.ts` (line 77)
-- **Fix:** Validate `category` against an allow-list matching the frontend `CATEGORIES` array.
+- **File:** `backend/src/functions/postGarment.ts`
+- **Fix:** Added `ALLOWED_CATEGORIES` set (`dress`, `top`, `bottom`, `outerwear`, `shoes`, `accessory`, `other`) with case-insensitive validation. Returns 400 with descriptive error listing valid categories. 2 new unit tests.
 
-**F3. `GET /garments` — no pagination**
+**F3. `GET /garments` — no pagination** ✅
 Issue #6 acceptance criteria: "Results are paginated or limited to a reasonable page size." The current implementation returns all garments with no limit.
-- **File:** `backend/src/services/garmentService.ts` (line 70–78)
-- **Fix:** Add `OFFSET`/`LIMIT` (or continuation token) support to the Cosmos DB query and accept `page`/`pageSize` query parameters.
+- **Files:** `backend/src/services/garmentService.ts`, `backend/src/functions/getGarments.ts`
+- **Fix:** Added `listGarmentsPaginated()` using Cosmos DB continuation tokens. `GET /garments` accepts `pageSize` (default 20, max 100) and `continuationToken` query params. Returns `continuationToken` in response when more pages exist. 6 new handler tests + 4 new service tests.
 
-**F4. `GET /stats/summary` — fetches all wear events without pagination**
+**F4. `GET /stats/summary` — fetches all wear events without pagination** ✅
 For a user with thousands of wear events, this endpoint will be slow and expensive (Cosmos RU consumption).
-- **File:** `backend/src/functions/getStatsSummary.ts` (line 54–57)
-- **Fix:** Use Cosmos DB aggregation queries (`GROUP BY`, `COUNT`, `MAX`) instead of fetching all documents client-side.
+- **Files:** `backend/src/services/wearEventService.ts`, `backend/src/functions/getStatsSummary.ts`
+- **Fix:** Added `getWearEventAggregations()` using Cosmos DB `GROUP BY` query (`SELECT c.garmentId, COUNT(1) AS eventCount, MAX(c.createdAt) AS lastWornDate`). `getStatsSummary` now uses aggregation results instead of fetching all events. 2 new service tests + updated handler tests.
 
 **F5. No retrain trigger exists for Custom Vision**
 Issue #10 acceptance criteria: "A retrain trigger exists (manual or automated) for when new garments are added." Training images are submitted, but the model is never actually retrained or republished.
 - **Fix:** Add a `POST /api/admin/retrain` endpoint or a timer-triggered function that calls the Custom Vision training and publish APIs.
 
-**F6. Unauthenticated requests return 400 instead of 401 when `REQUIRE_AUTH` is disabled**
-Issue #13 acceptance criteria: "Unauthenticated requests to protected API endpoints return HTTP 401." Currently, when `REQUIRE_AUTH` is not enabled, missing userId returns 400 (bad request) instead of 401.
-- **Files:** all function handlers
-- **Fix:** When userId is missing, always return 401 regardless of `REQUIRE_AUTH` setting — or better yet, always require auth (see S4).
+**F6. Unauthenticated requests return 400 instead of 401 when `REQUIRE_AUTH` is disabled** ✅ (fixed by S4)
+Issue #13 acceptance criteria: "Unauthenticated requests to protected API endpoints return HTTP 401." Previously, when `REQUIRE_AUTH` was not enabled, missing userId returned 400 (bad request) instead of 401.
+- **Files:** `backend/src/services/authMiddleware.ts`, all function handlers
+- **Fix:** S4 made auth required by default (`isAuthRequired()` returns `true`). All handlers now use `extractUserId()` which returns 401 via `unauthorizedResponse()` when auth fails. Body-based userId fallback was removed.
 
 **F7. Key Vault secret population is not automated**
 Issue #13 acceptance criteria: "All secrets are stored in Key Vault." The Bicep templates create the Key Vault but do not populate any secrets. A manual `az keyvault secret set` step is required with no automation or CI integration.
 - **File:** `infra/modules/functions.bicep` (lines 162–168 comments), `infra/README.md`
 - **Fix:** Either populate secrets in Bicep using `Microsoft.KeyVault/vaults/secrets` resources, or add a GitHub Actions step to populate them post-deployment.
 
-**F8. `name` and other string fields have no maximum length**
-`name` in `POST /garments`, `blobName` in `POST /images/sas-url` — there is no upper bound on string length, risking storage abuse or UI rendering issues.
-- **Fix:** Add `maxLength` checks (e.g. `name` ≤ 100, `blobName` ≤ 256, `category` ≤ 50).
+**F8. `name` and other string fields have no maximum length** ✅ (fixed by S12)
+`name` in `POST /garments`, `blobName` in `POST /images/sas-url` — there was no upper bound on string length, risking storage abuse or UI rendering issues.
+- **Fix:** Per-field max-length checks added in S12: `name` ≤ 100, `category` ≤ 50, `imageUrl` ≤ 2048 in `postGarment.ts`; `blobName` ≤ 256 in `images.ts`; `garmentId` ≤ 100, `auditId` ≤ 100, `embeddingDescription` ≤ 500 in `postWearConfirm.ts`. All validated with unit tests.
 
 ---
 
@@ -483,18 +483,18 @@ Issue #13 acceptance criteria: "All secrets are stored in Key Vault." The Bicep 
 | S13 | 🟡 High | Storage key in plain-text app settings | ✅ Identity-based `AzureWebJobsStorage__accountName` + RBAC |
 | S14 | 🟡 High | No secret rotation | ✅ Documented 90-day rotation schedule + `enablePurgeProtection` |
 | F1 | 🟢 Functional | Frontend is all stubs | Partially by #15 |
-| F2 | 🟢 Functional | No category enum validation | No |
-| F3 | 🟢 Functional | No pagination on GET /garments | No |
-| F4 | 🟢 Functional | Stats fetches all events | No |
+| F2 | 🟢 Functional | No category enum validation | ✅ Enum validation + 2 tests |
+| F3 | 🟢 Functional | No pagination on GET /garments | ✅ Continuation-token pagination + 10 tests |
+| F4 | 🟢 Functional | Stats fetches all events | ✅ Cosmos GROUP BY aggregation + tests |
 | F5 | 🟢 Functional | No retrain trigger | Partially by #16 |
-| F6 | 🟢 Functional | 400 instead of 401 on missing auth | No |
+| F6 | 🟢 Functional | 400 instead of 401 on missing auth | ✅ Fixed by S4 |
 | F7 | 🟢 Functional | Key Vault secrets not auto-populated | No |
-| F8 | 🟢 Functional | No max-length on string inputs | No |
+| F8 | 🟢 Functional | No max-length on string inputs | ✅ Fixed by S12 |
 
 **Acceptance Criteria:**
 - [x] All 🔴 Critical items (S1–S7) are fixed and verified by unit tests.
 - [x] All 🟡 High items (S8–S14) are addressed or documented as accepted risk with a mitigation timeline.
-- [ ] 🟢 Functional items are triaged — fix now or defer to the appropriate open issue with a cross-reference.
+- [x] 🟢 Functional items are triaged — F2/F3/F4 implemented; F6 fixed by S4; F8 fixed by S12; F1 deferred to #15; F5 deferred to #16; F7 is infra-only.
 - [ ] A follow-up security test pass confirms no regressions.
 
 **Priority Order (recommended):**
