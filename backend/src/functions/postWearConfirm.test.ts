@@ -135,6 +135,9 @@ describe("POST /api/wear/confirm", () => {
 
     const { postWearConfirm } = await import("./postWearConfirm.js");
     const res = await postWearConfirm(makeRequest(validBody(), "user-1"), makeContext());
+
+    expect(res.status).toBe(200);
+    expect(res.jsonBody).toEqual(sampleWearEvent());
   });
 
   it("creates a WearEvent and increments wearCount on confirmed = true", async () => {
