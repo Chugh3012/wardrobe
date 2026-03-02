@@ -383,7 +383,7 @@ All functions use `authLevel: "anonymous"`. The SWA `staticwebapp.config.json` r
 
 **S8. No Content-Security-Policy (CSP) header on the frontend**
 `staticwebapp.config.json` sets `X-Frame-Options`, `X-Content-Type-Options`, etc., but does **not** include a `Content-Security-Policy` header. Without CSP, any XSS vulnerability in the frontend has no browser-level mitigation.
-- **File:** `frontend/staticwebapp.config.json`
+- **File:** `frontend/public/staticwebapp.config.json` (moved from `frontend/` to `frontend/public/` so Vite includes it in the build output)
 - **Fix:** Add a `Content-Security-Policy` header, e.g.: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.blob.core.windows.net; connect-src 'self' https://*.azurewebsites.net;`
 
 **S9. No rate limiting on any API endpoint**
