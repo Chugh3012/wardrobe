@@ -284,8 +284,10 @@ resource authSettingsV2 'Microsoft.Web/sites/config@2023-12-01' = if (!empty(aad
       enabled: true
     }
     globalValidation: {
-      requireAuthentication: true
-      unauthenticatedClientAction: 'Return401'
+      // Allow unauthenticated requests (e.g. CORS preflight OPTIONS) to pass
+      // through EasyAuth so the platform CORS middleware can add headers.
+      // Actual API auth is enforced by the app-level authMiddleware (S4/SEC-P5).
+      unauthenticatedClientAction: 'AllowAnonymous'
     }
     identityProviders: {
       azureActiveDirectory: {
