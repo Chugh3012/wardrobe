@@ -147,8 +147,10 @@ module keyVaultRbac 'modules/key-vault-rbac.bicep' = {
 }
 
 // ── Monthly Budget Alert (SEC-P3) ────────────────────────────────────────────
+// Only deployed when at least one alert email is provided — Azure requires
+// a non-empty contactEmails list on budget notifications.
 
-module budget 'modules/budget.bicep' = {
+module budget 'modules/budget.bicep' = if (!empty(budgetAlertEmails)) {
   name: 'budget-${environmentName}'
   scope: rg
   params: {

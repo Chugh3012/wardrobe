@@ -12,3 +12,4 @@ param tags = {
   environment: 'dev'
   managedBy: 'bicep'
 }
+param budgetAlertEmails = ['saurabh.chugh3012@gmail.com']
