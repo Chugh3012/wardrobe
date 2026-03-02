@@ -15,7 +15,7 @@
  * It is safe to embed in client-side code.
  */
 
-import { ApplicationInsights } from "@microsoft/applicationinsights-web";
+import { ApplicationInsights } from '@microsoft/applicationinsights-web';
 
 let appInsights: ApplicationInsights | null = null;
 
