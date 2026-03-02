@@ -118,14 +118,7 @@ describe("POST /api/garments", () => {
 
   it("returns 401 when auth header is missing", async () => {
     const { postGarment } = await import("./postGarment.js");
-    const res = await postGarment(makeRequest(validBody({ userId: "" })), makeContext());
-    expect(res.status).toBe(401);
-    expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
-  });
-
-  it("returns 401 when auth header is not provided", async () => {
-    const { postGarment } = await import("./postGarment.js");
-    const res = await postGarment(makeRequest(validBody({ userId: 42 })), makeContext());
+    const res = await postGarment(makeRequest(validBody()), makeContext());
     expect(res.status).toBe(401);
     expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
   });

@@ -199,16 +199,6 @@ describe("POST /api/wear/predict", () => {
     expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
   });
 
-  it("returns 401 when auth header is not provided", async () => {
-    const { postWearPredict } = await import("./postWearPredict.js");
-    const res = await postWearPredict(
-      makeRequest(validBody()),
-      makeContext()
-    );
-    expect(res.status).toBe(401);
-    expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
-  });
-
   it("returns 400 when outfitImageUrl is missing", async () => {
     const { postWearPredict } = await import("./postWearPredict.js");
     const res = await postWearPredict(

@@ -219,17 +219,7 @@ describe("POST /api/wear/confirm", () => {
   it("returns 401 when auth header is missing", async () => {
     const { postWearConfirm } = await import("./postWearConfirm.js");
     const res = await postWearConfirm(
-      makeRequest(validBody({ userId: "" })),
-      makeContext()
-    );
-    expect(res.status).toBe(401);
-    expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
-  });
-
-  it("returns 401 when auth header is not provided", async () => {
-    const { postWearConfirm } = await import("./postWearConfirm.js");
-    const res = await postWearConfirm(
-      makeRequest(validBody({ userId: 42 })),
+      makeRequest(validBody()),
       makeContext()
     );
     expect(res.status).toBe(401);
