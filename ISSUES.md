@@ -253,7 +253,7 @@ Implement the `GET /stats/summary` endpoint that returns aggregated wear statist
 
 ### Issue #10: Integrate Azure AI Custom Vision for Garment Classification
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 Train an Azure AI Custom Vision model on the garment catalog photos and integrate it into the `POST /wear/predict` endpoint. Each garment's catalog images (from Issue #5) serve as training data. The model must be retrained when new garments are added to the catalog.
@@ -273,7 +273,7 @@ Train an Azure AI Custom Vision model on the garment catalog photos and integrat
 
 ### Issue #11: Add Fallback — Azure AI Vision Embeddings & Similarity Search
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 When Custom Vision returns a prediction below the confidence threshold (e.g., <85%), fall back to Azure AI Vision image embeddings combined with cosine similarity search across catalog image embeddings. This improves robustness for ambiguous or novel photos. Pre-computed embeddings for catalog images should be stored in Cosmos DB (or a vector index).
@@ -293,7 +293,7 @@ When Custom Vision returns a prediction below the confidence threshold (e.g., <8
 
 ### Issue #12: Implement Confidence-Based UX Guardrails
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 Implement the accuracy and UX guardrails defined in README §8 to prevent silent data corruption and improve user experience. These guardrails govern when to auto-suggest vs. show alternatives, and enforce data quality during garment onboarding.
@@ -313,7 +313,7 @@ Implement the accuracy and UX guardrails defined in README §8 to prevent silent
 
 ### Issue #13: Setup Identity & Security (Entra External ID, Managed Identity, Key Vault)
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 Configure end-to-end authentication and secrets management. Users sign in via Microsoft Entra External ID. Service-to-service calls use Managed Identity. All secrets (Cosmos DB keys, Blob connection strings, Custom Vision keys) are stored in Azure Key Vault. Image access is gated by short-lived SAS tokens.
@@ -494,10 +494,10 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 | #7 | Implement `POST /wear/predict` | MVP | [x] Done |
 | #8 | Implement `POST /wear/confirm` | MVP | [x] Done |
 | #9 | Implement `GET /stats/summary` | MVP | [x] Done |
-| #10 | Integrate Azure AI Custom Vision | MVP | [ ] Open |
-| #11 | Add Fallback: Embeddings & Similarity Search | MVP | [ ] Open |
-| #12 | Implement Confidence-Based UX Guardrails | MVP | [ ] Open |
-| #13 | Setup Identity & Security | MVP | [ ] Open |
+| #10 | Integrate Azure AI Custom Vision | MVP | [x] Done |
+| #11 | Add Fallback: Embeddings & Similarity Search | MVP | [x] Done |
+| #12 | Implement Confidence-Based UX Guardrails | MVP | [x] Done |
+| #13 | Setup Identity & Security | MVP | [x] Done |
 | #14 | Setup Observability | MVP | [ ] Open |
 | #15 | End-to-End Phone-Testable Flow Validation | MVP | [ ] Open |
 | #16 | Retraining Pipeline from User Corrections | Phase 2 | [ ] Open |
