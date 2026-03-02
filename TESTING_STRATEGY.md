@@ -24,7 +24,7 @@ Every feature in this project must be verifiable from a real phone browser (or i
 - **Tools:** [Vitest](https://vitest.dev/) for TypeScript/JavaScript backend (Azure Functions) and frontend code.
 - **Run:** Locally via `npm test` and in CI via GitHub Actions on every pull request.
 - **Convention:** Test files are co-located with source files using the `*.test.ts` / `*.test.js` naming pattern.
-- **Current count:** 192 tests across 18 files (backend).
+- **Current count:** 199 tests across 18 files (backend).
 
 ### 2.2 Integration Tests
 
@@ -69,6 +69,7 @@ Every feature in this project must be verifiable from a real phone browser (or i
 | Area | Tests | File |
 |------|-------|------|
 | Base64 `x-ms-client-principal` decoding | Valid extraction, UUID userId, missing/null userId, non-string userId, invalid base64, non-JSON payload, unsafe characters, length limits | `authMiddleware.test.ts` |
+| EasyAuth v2 claims format | `objectidentifier` claim extraction, `nameidentifier` fallback, claim priority ordering, empty claims array, unsafe chars in claim values, no matching claims, SWA `userId` takes priority over claims | `authMiddleware.test.ts` |
 | Plain-text header fallback | Ignored when `REQUIRE_AUTH=true`; accepted only when `REQUIRE_AUTH=false`; base64 takes priority when both headers are present | `authMiddleware.test.ts` |
 | SAS content-type restrictions | Default to `image/jpeg`, accept `image/png` / `image/webp`, reject `text/plain` / `application/octet-stream` | `images.test.ts` |
 | Per-function auth enforcement | Every function test file uses `encodeClientPrincipal()` helper to supply a valid base64 `x-ms-client-principal` header | `*.test.ts` (all 7 function files) |
@@ -78,7 +79,7 @@ Every feature in this project must be verifiable from a real phone browser (or i
 
 #### Test patterns
 
-- **`encodeClientPrincipal(userId)`** — A shared helper in each test file that builds a `ClientPrincipal` JSON object and base64-encodes it. This mirrors the header that Azure Static Web Apps EasyAuth injects.
+- **`encodeClientPrincipal(userId)`** — A shared helper in each test file that builds a `ClientPrincipal` JSON object and base64-encodes it. This mirrors the header that Azure EasyAuth injects. The helper uses the SWA format (`{ userId }`) by default; dedicated tests in `authMiddleware.test.ts` also cover the App Service EasyAuth v2 format (`{ auth_typ, claims: [{ typ, val }] }`).
 - **Negative tests** — Specifically test spoofed, malformed, and missing auth headers to ensure the middleware rejects them.
 - **Environment-aware tests** — `REQUIRE_AUTH` environment variable is toggled in tests to verify both strict and relaxed modes.
 

@@ -495,7 +495,7 @@ Issue #13 acceptance criteria: "All secrets are stored in Key Vault." The Bicep 
 - [x] All 🔴 Critical items (S1–S7) are fixed and verified by unit tests.
 - [x] All 🟡 High items (S8–S14) are addressed or documented as accepted risk with a mitigation timeline.
 - [x] 🟢 Functional items are triaged — F2/F3/F4 implemented; F6 fixed by S4; F8 fixed by S12; F1 deferred to #15; F5 deferred to #16; F7 is infra-only.
-- [ ] A follow-up security test pass confirms no regressions.
+- [x] A follow-up security test pass confirms no regressions. Completed: line-by-line code review of the net diff (+208/-12 across 3 files), all SEC-P and S guardrails cross-checked, and 3 curl-based penetration tests (header spoofing, invalid token, SWA-format spoofing) — all attacks returned 401.
 
 **Priority Order (recommended):**
 1. S4 + S5 (auth enforcement) — everything else depends on authentication working.
@@ -766,7 +766,9 @@ The standalone Function App (`func-wardrobe-dev.azurewebsites.net`) was never ca
 
 **Changes Made:**
 
-1. **`infra/modules/functions.bicep`** — Removed `ipSecurityRestrictions` (SEC-P1 originally). Added EasyAuth v2 via `Microsoft.Web/sites/config@2023-12-01` (`authsettingsV2`): validates AAD tokens with audience `api://<clientId>` and issuer `login.microsoftonline.com/<tenantId>/v2.0`, `unauthenticatedClientAction: 'Return401'`. Added `aadTenantId` and `aadClientId` parameters. Updated CORS to `supportCredentials: true` for cross-origin Bearer tokens.
+1. **`infra/modules/functions.bicep`** — Removed `ipSecurityRestrictions` (SEC-P1 originally). Added EasyAuth v2 via `Microsoft.Web/sites/config@2023-12-01` (`authsettingsV2`): validates AAD tokens with audience `api://<clientId>` and issuer `login.microsoftonline.com/<tenantId>/v2.0`. Initially set `unauthenticatedClientAction: 'Return401'`, later changed to `'AllowAnonymous'` because `Return401` blocked CORS preflight `OPTIONS` requests (which carry no Bearer token), causing 403 errors on cross-origin API calls from the SWA frontend. With `AllowAnonymous`, EasyAuth still validates tokens on authenticated requests and injects `x-ms-client-principal`; unauthenticated requests pass through to the app code which enforces auth via `extractUserId()` + `unauthorizedResponse()`. Added `aadTenantId` and `aadClientId` parameters. Updated CORS to `supportCredentials: true` for cross-origin Bearer tokens.
+
+   > **Post-deployment fix:** The `authMiddleware.ts` `extractFromClientPrincipal()` function originally only handled the SWA format (`{ userId }`). When EasyAuth v2 on the standalone Function App injects `x-ms-client-principal`, it uses a different format: `{ auth_typ, claims: [{ typ, val }] }`. This caused all authenticated requests to return 401 (userId extraction failed). Fixed by extending the middleware to try the SWA `userId` field first, then fall back to extracting the OID from the `claims[]` array using `objectidentifier` and `nameidentifier` claim types. Added 8 new tests (25 total in `authMiddleware.test.ts`). Backend now has **199 tests** across 18 files.
 
 2. **`infra/main.bicep`** — Added `aadTenantId` and `aadClientId` parameters (with defaults), passed to functions module.
 
@@ -804,19 +806,19 @@ The standalone Function App (`func-wardrobe-dev.azurewebsites.net`) was never ca
 | S12–S14 (Payload limits, storage identity, rotation) | ✅ Unchanged |
 | SEC-P1 (Function App access) | ✅ **Upgraded** — IP restrictions → EasyAuth v2. Net security improvement. |
 | SEC-P2–P4 (SP scope, budget, KV refs) | ✅ Unchanged |
-| SEC-P5 (Base64 principal validation) | ✅ Unchanged — `authMiddleware.ts` reads same header (now injected by Function App EasyAuth instead of SWA) |
+| SEC-P5 (Base64 principal validation) | ✅ **Extended** — `authMiddleware.ts` now supports both SWA format (`{ userId }`) and App Service EasyAuth v2 format (`{ claims: [{ typ, val }] }`). 8 new tests added (25 total). |
 | SEC-P6 (SAS content-type) | ✅ Unchanged |
 | #13.7 (Entra app registration) | ✅ Extended — SPA redirect URIs + API scope added to existing `wardrobe-swa-auth` registration |
 
 **Acceptance Criteria:**
 - [x] Frontend builds successfully with MSAL integration (TypeScript clean, Vite production build passes).
-- [x] Backend is unchanged — 192 tests pass across 18 files.
+- [x] Backend — 199 tests pass across 18 files (7 new authMiddleware tests for EasyAuth v2 claims format + 1 priority test).
 - [x] No security guardrails from #13/#13.5/#13.6/#13.7 are weakened.
 - [x] SEC-P1 is upgraded (IP restrictions → EasyAuth v2).
 - [x] Bicep templates are updated to deploy EasyAuth v2 declaratively.
 - [x] Deploy workflow no longer deploys managed functions.
-- [ ] After deployment: `/api/stats/summary` returns 200 (not 500).
-- [ ] After deployment: unauthenticated requests to Function App return 401.
+- [x] After deployment: `/api/stats/summary` returns 200 (not 500). Verified in browser.
+- [x] After deployment: unauthenticated requests to Function App return 401. Verified via curl spoofing tests (spoofed headers, invalid tokens, SWA-format spoofing — all returned 401).
 
 **Phone-Test Validation:**
 > Open the SWA URL in a phone browser (incognito). Verify: (1) MSAL redirects to Entra login, (2) after sign-in the Dashboard loads with real data from `func-wardrobe-dev`, (3) network tab shows requests to `func-wardrobe-dev.azurewebsites.net/api/*` with `Authorization: Bearer` header, (4) no 500 errors.
@@ -949,6 +951,7 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 | #14 | Setup Observability | MVP | [x] Done |
 | #15 | End-to-End Phone-Testable Flow Validation | MVP | [x] Done |
 | #15.5 | SWA Auth Pattern A, E2E Test Suite & PWA Fixes | MVP | [x] Done |
+| #15.6 | MSAL + Function App EasyAuth v2 Architecture | MVP | [x] Done |
 | #16 | Retraining Pipeline from User Corrections | Phase 2 | [ ] Open |
 | #17 | Duplicate/Near-Similar Dress Disambiguation | Phase 2 | [ ] Open |
 | #18 | Monthly Insights ("Not Worn in 60 Days") | Phase 2 | [ ] Open |
