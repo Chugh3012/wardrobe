@@ -5,7 +5,7 @@ import {
   InvocationContext,
 } from "@azure/functions";
 import { readPredictionAudit, updatePredictionAudit } from "../services/predictionAuditService.js";
-import { incrementWearCount } from "../services/garmentService.js";
+import { incrementWearCount, readGarment } from "../services/garmentService.js";
 import { createWearEvent } from "../services/wearEventService.js";
 import {
   extractUserId,
@@ -101,6 +101,15 @@ export async function postWearConfirm(
       return {
         status: 404,
         jsonBody: { error: "PredictionAudit not found." },
+      };
+    }
+
+    // ── Verify garment ownership (IDOR prevention) ─────────────────────────
+    const garment = await readGarment(confirmedGarmentId, userId);
+    if (!garment) {
+      return {
+        status: 404,
+        jsonBody: { error: "Garment not found." },
       };
     }
 

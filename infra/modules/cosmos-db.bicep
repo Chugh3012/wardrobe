@@ -48,7 +48,7 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
     consistencyPolicy: {
       defaultConsistencyLevel: 'Session'
     }
-    disableLocalAuth: false
+    disableLocalAuth: true
   }
 }
 
