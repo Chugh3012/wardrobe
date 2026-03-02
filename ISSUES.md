@@ -580,6 +580,45 @@ The SAS URL endpoint generated upload tokens without content-type restrictions, 
 
 ---
 
+### Issue #13.7: Wire SWA EasyAuth — Entra ID App Registration & Configuration
+
+- [x] **Status:** Done
+
+**Description:**
+Issue #13 established the authentication *architecture* — auth middleware, `staticwebapp.config.json` route rules, `x-ms-client-principal` header parsing — but never created the **user-facing Entra ID app registration** that SWA EasyAuth requires. The config file contains `{TENANT_ID}` (literal placeholder) and references an `AAD_CLIENT_ID` app setting that was never set. As a result, **anyone with the SWA URL can access the entire frontend** and SWA cannot redirect unauthenticated users to an Entra login page.
+
+This issue creates the Entra app registration, wires it into SWA, and replaces all placeholder values — completing the EasyAuth integration that Issue #13 intended.
+
+**Root Cause:**
+- Issue #13 created the GitHub Actions SP (`wardrobe-github-actions`) for CI/CD auth but never created a *second* Entra app for user-facing auth.
+- `staticwebapp.config.json` was written with the correct structure but placeholder values (`{TENANT_ID}`, `AAD_CLIENT_ID`), giving the appearance of completeness.
+- The Bicep template `static-web-app.bicep` has no auth/identity provider configuration — EasyAuth was left entirely to manual steps that were never documented.
+- Issue #13.5 security audit checked backend auth but didn't verify that the SWA EasyAuth identity provider was actually registered.
+
+**Tasks:**
+1. Create an Entra ID app registration (e.g. `wardrobe-swa-auth`) with:
+   - **Redirect URI:** `https://<swa-hostname>/.auth/login/aad/callback`
+   - **Sign-in audience:** Single tenant (your Entra tenant only)
+   - **Implicit grant:** Enable `id_token` for SWA EasyAuth flow
+2. Set the `AAD_CLIENT_ID` app setting on the SWA resource to the new app's client ID.
+3. Replace `{TENANT_ID}` placeholder in `frontend/public/staticwebapp.config.json` with the real tenant ID.
+4. Document the SWA auth app setup steps in `infra/README.md` (alongside the existing CI SP steps).
+5. Verify: unauthenticated access to the SWA URL redirects to Entra login; after sign-in, `x-ms-client-principal` header is populated in API requests.
+
+**Acceptance Criteria:**
+- An Entra ID app registration exists for SWA user authentication (separate from the CI SP).
+- `AAD_CLIENT_ID` is set in SWA app settings pointing to the new app's client ID.
+- `staticwebapp.config.json` contains the real tenant ID (no `{TENANT_ID}` placeholder).
+- Unauthenticated visitors are redirected to Entra login (HTTP 302 → `/.auth/login/aad`).
+- After sign-in, the authenticated user's identity is available via `x-ms-client-principal` header.
+- `infra/README.md` documents the SWA auth app registration steps.
+- Only users in the configured Entra tenant can sign in (single-tenant audience).
+
+**Phone-Test Validation:**
+> Open the SWA URL in a phone browser (private/incognito). Verify you are redirected to a Microsoft login page. Sign in with your Entra account. Verify you land on the Dashboard. Open browser dev tools (or inspect network) and confirm API requests include the `x-ms-client-principal` header. Sign out and verify you cannot access protected pages without re-authenticating.
+
+---
+
 ### Issue #14: Setup Observability (Application Insights & Log Analytics)
 
 - [ ] **Status:** Open
@@ -752,6 +791,7 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 | #13 | Setup Identity & Security | MVP | [x] Done |
 | #13.5 | Security Hardening & Implementation Gap Remediation | MVP | [ ] Open |
 | #13.6 | Infrastructure Security Hardening (SEC-P1–P6) | MVP | [x] Done |
+| #13.7 | Wire SWA EasyAuth — Entra ID App Registration | MVP | [x] Done |
 | #14 | Setup Observability | MVP | [ ] Open |
 | #15 | End-to-End Phone-Testable Flow Validation | MVP | [ ] Open |
 | #16 | Retraining Pipeline from User Corrections | Phase 2 | [ ] Open |

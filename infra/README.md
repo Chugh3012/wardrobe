@@ -126,6 +126,44 @@ This requires a PAT with `secrets: write` on this repository.
 gh secret set ACTIONS_TOKEN --repo Chugh3012/wardrobe --body "<your-pat>"
 ```
 
+### 6. Configure SWA EasyAuth — Entra ID user authentication (Issue #13.7)
+
+This creates a **separate** Entra app from the CI SP above. This app handles
+end-user sign-in via SWA EasyAuth (Azure AD provider).
+
+```bash
+# 1. Create the app registration (single-tenant, SWA callback redirect)
+SWA_HOSTNAME=$(az staticwebapp show -n swa-wardrobe-dev -g rg-wardrobe-dev --query defaultHostname -o tsv)
+
+az ad app create \
+  --display-name "wardrobe-swa-auth" \
+  --sign-in-audience "AzureADMyOrg" \
+  --web-redirect-uris "https://$SWA_HOSTNAME/.auth/login/aad/callback"
+
+SWA_AUTH_APP_ID=$(az ad app list --display-name "wardrobe-swa-auth" --query "[0].appId" -o tsv)
+SWA_AUTH_OBJECT_ID=$(az ad app list --display-name "wardrobe-swa-auth" --query "[0].id" -o tsv)
+
+# 2. Enable id_token implicit grant (required by SWA EasyAuth)
+az rest --method PATCH \
+  --uri "https://graph.microsoft.com/v1.0/applications/$SWA_AUTH_OBJECT_ID" \
+  --headers "Content-Type=application/json" \
+  --body '{"web":{"implicitGrantSettings":{"enableIdTokenIssuance":true,"enableAccessTokenIssuance":false}}}'
+
+# 3. Set the AAD_CLIENT_ID app setting on SWA
+az staticwebapp appsettings set \
+  -n swa-wardrobe-dev -g rg-wardrobe-dev \
+  --setting-names "AAD_CLIENT_ID=$SWA_AUTH_APP_ID"
+
+# 4. Update frontend/public/staticwebapp.config.json:
+#    Replace {TENANT_ID} with your real tenant ID in the openIdIssuer URL.
+#    The clientIdSettingName "AAD_CLIENT_ID" references the app setting above.
+TENANT_ID=$(az account show --query tenantId -o tsv)
+echo "Replace {TENANT_ID} in staticwebapp.config.json with: $TENANT_ID"
+```
+
+> **Note:** Only users in your Entra tenant can sign in (single-tenant). To
+> invite external users, add them as guests: `az ad invitation create --invited-user-email-address <email>`.
+
 ---
 
 ## Running the workflow
