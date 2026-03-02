@@ -46,6 +46,9 @@ param cvPredictionEndpoint string = ''
 @description('AI Vision endpoint for image embeddings.')
 param aiVisionEndpoint string = ''
 
+@description('Include localhost CORS origin for local development (dev only).')
+param includeCorsLocalhost bool = false
+
 // ── Storage Account (required by Functions runtime) ──────────────────────────
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -94,10 +97,10 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       cors: {
-        allowedOrigins: [
-          'https://${staticWebAppHostname}'
-          'http://localhost:5173' // Vite dev server for local development
-        ]
+        allowedOrigins: union(
+          [ 'https://${staticWebAppHostname}' ],
+          includeCorsLocalhost ? [ 'http://localhost:5173' ] : []
+        )
         supportCredentials: false
       }
       appSettings: [

@@ -20,6 +20,9 @@ interface PostWearPredictBody {
   outfitImageUrl?: unknown;
 }
 
+/** Maximum length for URL fields. */
+const MAX_URL_LENGTH = 2048;
+
 /**
  * POST /api/wear/predict
  *
@@ -71,6 +74,13 @@ export async function postWearPredict(
     return {
       status: 400,
       jsonBody: { error: "'outfitImageUrl' is required." },
+    };
+  }
+
+  if (outfitImageUrl.length > MAX_URL_LENGTH) {
+    return {
+      status: 400,
+      jsonBody: { error: `'outfitImageUrl' must be at most ${MAX_URL_LENGTH} characters.` },
     };
   }
 

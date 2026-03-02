@@ -20,6 +20,9 @@ interface PostWearConfirmBody {
   confirmed?: unknown;
 }
 
+/** Maximum length for ID fields. */
+const MAX_ID_LENGTH = 256;
+
 /**
  * POST /api/wear/confirm
  *
@@ -80,10 +83,22 @@ export async function postWearConfirm(
       jsonBody: { error: "'predictionAuditId' is required." },
     };
   }
+  if (predictionAuditId.length > MAX_ID_LENGTH) {
+    return {
+      status: 400,
+      jsonBody: { error: `'predictionAuditId' must be at most ${MAX_ID_LENGTH} characters.` },
+    };
+  }
   if (!confirmedGarmentId) {
     return {
       status: 400,
       jsonBody: { error: "'confirmedGarmentId' is required." },
+    };
+  }
+  if (confirmedGarmentId.length > MAX_ID_LENGTH) {
+    return {
+      status: 400,
+      jsonBody: { error: `'confirmedGarmentId' must be at most ${MAX_ID_LENGTH} characters.` },
     };
   }
   if (typeof body.confirmed !== "boolean") {

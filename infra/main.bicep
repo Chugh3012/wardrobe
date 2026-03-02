@@ -99,6 +99,7 @@ module functions 'modules/functions.bicep' = {
     cvTrainingEndpoint: aiServices.outputs.cvTrainingEndpoint
     cvPredictionEndpoint: aiServices.outputs.cvPredictionEndpoint
     aiVisionEndpoint: aiServices.outputs.aiVisionEndpoint
+    includeCorsLocalhost: environmentName == 'dev'
   }
 }
 

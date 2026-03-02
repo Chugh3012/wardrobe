@@ -222,6 +222,40 @@ describe("POST /api/garments", () => {
     expect((res.jsonBody as { error: string }).error).toContain("Failed to create garment");
   });
 
+  // ── S12: field length limits ────────────────────────────────────────────────
+
+  it("returns 400 when name exceeds 100 characters", async () => {
+    const { postGarment } = await import("./postGarment.js");
+    const longName = "a".repeat(101);
+    const res = await postGarment(makeRequest(validBody({ name: longName })), makeContext());
+    expect(res.status).toBe(400);
+    expect((res.jsonBody as { error: string }).error).toContain("at most 100");
+  });
+
+  it("accepts name with exactly 100 characters", async () => {
+    mockCreate.mockResolvedValue({ resource: { id: "g1" } });
+    const { postGarment } = await import("./postGarment.js");
+    const name100 = "a".repeat(100);
+    const res = await postGarment(makeRequest(validBody({ name: name100 })), makeContext());
+    expect(res.status).toBe(201);
+  });
+
+  it("returns 400 when category exceeds 50 characters", async () => {
+    const { postGarment } = await import("./postGarment.js");
+    const longCategory = "a".repeat(51);
+    const res = await postGarment(makeRequest(validBody({ category: longCategory })), makeContext());
+    expect(res.status).toBe(400);
+    expect((res.jsonBody as { error: string }).error).toContain("at most 50");
+  });
+
+  it("accepts category with exactly 50 characters", async () => {
+    mockCreate.mockResolvedValue({ resource: { id: "g1" } });
+    const { postGarment } = await import("./postGarment.js");
+    const cat50 = "a".repeat(50);
+    const res = await postGarment(makeRequest(validBody({ category: cat50 })), makeContext());
+    expect(res.status).toBe(201);
+  });
+
   // ── S7: SSRF — catalogImageUrls URL validation ────────────────────────────
 
   it("returns 400 when a catalogImageUrl uses http instead of https", async () => {
