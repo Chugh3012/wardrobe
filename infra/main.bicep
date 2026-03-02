@@ -8,8 +8,11 @@
 
 targetScope = 'subscription'
 
-@description('Azure region for all resources.')
-param location string = 'northeurope'
+@description('Azure region for all resources except Cosmos DB.')
+param location string = 'westeurope'
+
+@description('Azure region for Cosmos DB (northeurope has free-tier capacity; westeurope does not).')
+param cosmosDbLocation string = 'northeurope'
 
 @description('Short environment name used in resource names (e.g. dev, prod).')
 @allowed(['dev', 'staging', 'prod'])
@@ -48,7 +51,7 @@ module cosmosDb 'modules/cosmos-db.bicep' = {
   name: 'cosmos-db-${environmentName}'
   scope: rg
   params: {
-    location: location
+    location: cosmosDbLocation
     environmentName: environmentName
     tags: tags
   }
