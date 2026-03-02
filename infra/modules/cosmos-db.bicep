@@ -1,11 +1,12 @@
-// Provisions the Azure Cosmos DB (NoSQL, serverless) account for the Wardrobe
-// Tracker data layer.
+// Provisions the Azure Cosmos DB (NoSQL, provisioned free tier) account for the
+// Wardrobe Tracker data layer.
 //
 // Resources created:
-//   1. Cosmos DB Account   — NoSQL API, serverless capacity mode.
-//   2. SQL Database        — "wardrobe"
+//   1. Cosmos DB Account   — NoSQL API, provisioned throughput, free tier
+//                            (1,000 RU/s + 25 GB storage at no cost).
+//   2. SQL Database        — "wardrobe" (shared 1,000 RU/s throughput)
 //   3. SQL Containers      — "garments", "wearEvents", "predictionAudits"
-//                            (all partitioned by /userId).
+//                            (all partitioned by /userId, share database RU/s).
 //
 // NOTE: The Cosmos DB data-plane RBAC assignment for the Function App Managed
 // Identity is created via a separate module (cosmos-db-rbac.bicep) to avoid a
@@ -22,7 +23,7 @@ param environmentName string
 @description('Resource tags.')
 param tags object
 
-// ── Cosmos DB Account (Serverless) ───────────────────────────────────────────
+// ── Cosmos DB Account (Provisioned Free Tier) ────────────────────────────────
 
 var accountName = 'cosmos-wardrobe-${environmentName}'
 
@@ -37,14 +38,10 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
       {
         locationName: location
         failoverPriority: 0
-        isZoneRedundant: true
+        isZoneRedundant: false
       }
     ]
-    capabilities: [
-      {
-        name: 'EnableServerless'
-      }
-    ]
+    enableFreeTier: true
     consistencyPolicy: {
       defaultConsistencyLevel: 'Session'
     }
@@ -60,6 +57,9 @@ resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-05-15
   properties: {
     resource: {
       id: 'wardrobe'
+    }
+    options: {
+      throughput: 1000
     }
   }
 }
