@@ -152,14 +152,14 @@ describe("POST /api/garments", () => {
     expect((res.jsonBody as { error: string }).error).toContain("catalogImageUrls");
   });
 
-  it("returns 400 when catalogImageUrls has fewer than 3 items", async () => {
+  it("returns 400 when catalogImageUrls is empty", async () => {
     const { postGarment } = await import("./postGarment.js");
     const res = await postGarment(
-      makeRequest(validBody({ catalogImageUrls: ["url1", "url2"] }), "user-1"),
+      makeRequest(validBody({ catalogImageUrls: [] }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
-    expect((res.jsonBody as { error: string }).error).toContain("between 3 and 8");
+    expect((res.jsonBody as { error: string }).error).toContain("between 1 and 8");
   });
 
   it("returns 400 when catalogImageUrls has more than 8 items", async () => {
@@ -170,7 +170,7 @@ describe("POST /api/garments", () => {
       makeContext()
     );
     expect(res.status).toBe(400);
-    expect((res.jsonBody as { error: string }).error).toContain("between 3 and 8");
+    expect((res.jsonBody as { error: string }).error).toContain("between 1 and 8");
   });
 
   it("returns 400 when catalogImageUrls contains a non-string entry", async () => {
@@ -195,10 +195,10 @@ describe("POST /api/garments", () => {
 
   // ── Accepts exactly 3 and exactly 8 photos ───────────────────────────────
 
-  it("accepts exactly 3 photos (minimum)", async () => {
+  it("accepts exactly 1 photo (minimum)", async () => {
     mockCreate.mockResolvedValue({ resource: { id: "g1" } });
     const { postGarment } = await import("./postGarment.js");
-    const urls = Array.from({ length: 3 }, (_, i) => `https://storageaccount.blob.core.windows.net/images/img${i}.jpg`);
+    const urls = ["https://storageaccount.blob.core.windows.net/images/img0.jpg"];
     const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls }), "user-1"), makeContext());
     expect(res.status).toBe(201);
   });

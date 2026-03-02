@@ -15,7 +15,7 @@ import { isValidImageUrl } from "../services/urlValidator.js";
 import { trackEvent, trackException } from "../services/telemetryService.js";
 
 /** Minimum number of catalog photos required for onboarding. */
-const MIN_PHOTOS = 3;
+const MIN_PHOTOS = 1;
 /** Maximum number of catalog photos allowed. */
 const MAX_PHOTOS = 8;
 /** Maximum length for garment name. */
