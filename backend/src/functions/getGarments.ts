@@ -11,11 +11,10 @@ import {
 } from "../services/authMiddleware.js";
 
 /**
- * GET /api/garments?userId=<string>
+ * GET /api/garments
  *
  * Returns a list of garments for the authenticated user.
- * Prefers the `x-ms-client-principal-id` header (Issue #13); falls back
- * to the `userId` query parameter for backward compatibility.
+ * Uses the `x-ms-client-principal-id` header (Issue #13) for authentication.
  *
  * Response includes: id, name, category, wearCount, and a thumbnail URL
  * (first entry of catalogImageUrls).

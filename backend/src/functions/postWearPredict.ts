@@ -29,7 +29,6 @@ const MAX_URL_LENGTH = 2048;
  *
  * Body (JSON):
  * {
- *   "userId": "string",            // required until auth middleware (Issue #13)
  *   "outfitImageUrl": "string"     // pre-uploaded Blob Storage URL
  * }
  *

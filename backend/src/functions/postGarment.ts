@@ -21,6 +21,8 @@ const MAX_PHOTOS = 8;
 const MAX_NAME_LENGTH = 100;
 /** Maximum length for garment category. */
 const MAX_CATEGORY_LENGTH = 50;
+/** Maximum length for URL fields (S12). */
+const MAX_URL_LENGTH = 2048;
 
 interface PostGarmentBody {
   name?: unknown;
@@ -35,7 +37,6 @@ interface PostGarmentBody {
  *
  * Body (JSON):
  * {
- *   "userId": "string",          // required until auth middleware is wired (Issue #13)
  *   "name": "string",            // garment display name
  *   "category": "string",        // e.g. "dress", "top", "bottom", "jacket"
  *   "catalogImageUrls": [        // 3–8 pre-uploaded Blob Storage URLs
@@ -130,6 +131,14 @@ export async function postGarment(
   }
 
   for (const url of catalogImageUrls) {
+    if (url.length > MAX_URL_LENGTH) {
+      return {
+        status: 400,
+        jsonBody: {
+          error: `Each URL in 'catalogImageUrls' must be at most ${MAX_URL_LENGTH} characters.`,
+        },
+      };
+    }
     if (!isValidImageUrl(url)) {
       return {
         status: 400,
