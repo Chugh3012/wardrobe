@@ -15,7 +15,7 @@ import type { HttpRequest } from "@azure/functions";
 /**
  * Safe characters allowed in a userId value.
  * Azure AD object IDs are UUIDs; this also allows common test-ID formats.
- * Defence-in-depth: prevents path-traversal sequences (e.g. `../`) from
+ * Defense-in-depth: prevents path-traversal sequences (e.g. `../`) from
  * being smuggled through the userId into blob paths or log entries.
  */
 const SAFE_USER_ID_RE = /^[a-zA-Z0-9@._-]+$/;
