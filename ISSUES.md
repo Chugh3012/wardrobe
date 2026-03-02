@@ -331,6 +331,183 @@ Configure end-to-end authentication and secrets management. Users sign in via Mi
 
 ---
 
+### Issue #13.5: Security Hardening & Implementation Gap Remediation
+
+- [ ] **Status:** Open
+
+**Description:**
+A full audit of Issues #0–#13 revealed security vulnerabilities and implementation gaps that must be addressed before the app is exposed to real users. This issue captures every gap found, prioritised by severity. Items marked 🔴 are exploitable in the current codebase; items marked 🟡 are defence-in-depth improvements; items marked 🟢 are functional gaps (not security) that were accepted in earlier issues but still need finishing.
+
+---
+
+#### 🔴 Critical — Exploitable Security Gaps
+
+**S1. `POST /api/images/sas-url` has no authentication check**
+The SAS-URL endpoint never calls `extractUserId` and never checks `REQUIRE_AUTH`. Any unauthenticated caller can generate upload and read SAS tokens for **any** blob path, including paths belonging to other users.
+- **File:** `backend/src/functions/images.ts`
+- **Fix:** Add the same `extractUserId` + `isAuthRequired` guard used by every other protected endpoint.
+
+**S2. Blob-name path traversal — no per-user scoping or sanitisation**
+The `blobName` parameter in `POST /api/images/sas-url` accepts arbitrary strings (e.g. `../../other-container/secret`). There is no validation that the blob name starts with the authenticated user's prefix or that it contains only safe characters.
+- **File:** `backend/src/functions/images.ts`
+- **Fix:** Validate `blobName` against a pattern (e.g. `^[a-zA-Z0-9._/-]{1,256}$`), reject `..` sequences, and prefix every blob name with `{userId}/` so users can only access their own blobs.
+
+**S3. IDOR on `POST /api/wear/confirm` — garment ownership not verified**
+`confirmedGarmentId` is accepted from the request body without verifying that the garment belongs to the authenticated user. User A can increment the wear count on User B's garment by passing User B's garment ID.
+- **File:** `backend/src/functions/postWearConfirm.ts` (line ~129)
+- **Fix:** Before calling `incrementWearCount`, call `readGarment(confirmedGarmentId, userId)` and return 404 if it does not exist.
+
+**S4. Auth fallback allows user impersonation when `REQUIRE_AUTH` is disabled**
+When `REQUIRE_AUTH` is not set (the current default), all endpoints accept an arbitrary `userId` from the JSON body or query string. Any caller can impersonate any user. The default must be secure.
+- **File:** `backend/src/services/authMiddleware.ts`
+- **Fix:** Either (a) change the default of `REQUIRE_AUTH` to `"true"`, or (b) remove the body-fallback path entirely and always require the `x-ms-client-principal-id` header (set by SWA/EasyAuth).
+
+**S5. Azure Functions directly accessible — bypasses SWA auth layer**
+All functions use `authLevel: "anonymous"`. The SWA `staticwebapp.config.json` requires the `authenticated` role for `/api/*`, but this only applies when requests go **through** SWA. If the Function App URL is known (e.g. `func-wardrobe-dev.azurewebsites.net`), anyone can call the API directly, bypassing SWA authentication entirely.
+- **Files:** all files in `backend/src/functions/`, `infra/modules/functions.bicep`
+- **Fix:** Either (a) set `authLevel: "function"` and share the function key with SWA only, or (b) configure Function App access restrictions in Bicep to allow traffic **only** from the SWA backend (recommended), or (c) ensure `REQUIRE_AUTH=true` is set as a Function App setting so the `x-ms-client-principal-id` header is always required.
+
+**S6. Cosmos DB local (key-based) authentication is enabled**
+`disableLocalAuth: false` in `cosmos-db.bicep`. If the account key leaks (logs, error messages, backup), an attacker has full unrestricted access to all data, bypassing the RBAC grants on the Managed Identity.
+- **File:** `infra/modules/cosmos-db.bicep` (line 51)
+- **Fix:** Set `disableLocalAuth: true` so only Managed Identity RBAC access is allowed.
+
+**S7. No URL validation on image URLs submitted to AI services (SSRF)**
+`catalogImageUrls` in `POST /garments` and `outfitImageUrl` in `POST /wear/predict` accept **any** string. These URLs are forwarded server-side to Custom Vision and Azure AI Vision endpoints. An attacker can submit internal Azure IMDS URLs (`http://169.254.169.254/…`) or other internal endpoints to perform Server-Side Request Forgery.
+- **Files:** `backend/src/functions/postGarment.ts`, `backend/src/functions/postWearPredict.ts`
+- **Fix:** Validate all image URLs against an allow-list of domains (e.g. only `*.blob.core.windows.net`), reject non-HTTPS URLs, and reject RFC-1918 / link-local IP addresses.
+
+---
+
+#### 🟡 High — Defence-in-Depth Hardening
+
+**S8. No Content-Security-Policy (CSP) header on the frontend**
+`staticwebapp.config.json` sets `X-Frame-Options`, `X-Content-Type-Options`, etc., but does **not** include a `Content-Security-Policy` header. Without CSP, any XSS vulnerability in the frontend has no browser-level mitigation.
+- **File:** `frontend/staticwebapp.config.json`
+- **Fix:** Add a `Content-Security-Policy` header, e.g.: `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.blob.core.windows.net; connect-src 'self' https://*.azurewebsites.net;`
+
+**S9. No rate limiting on any API endpoint**
+There is no rate limiting at the Azure Functions level, API Management level, or application level. An attacker can flood `POST /wear/predict` (which triggers expensive AI service calls) and cause cost exhaustion or denial-of-service.
+- **Files:** `backend/host.json`, `infra/modules/functions.bicep`
+- **Fix:** Add at minimum: (a) an `extensions.http.maxConcurrentRequests` setting in `host.json`, (b) consider Azure API Management or Azure Front Door rate-limiting rules for production.
+- **Note:** This is NOT covered by Issue #14 (Observability) or any other open issue.
+
+**S10. AI Services have `publicNetworkAccess: 'Enabled'`**
+All three Cognitive Services accounts (Custom Vision Training, Prediction, Computer Vision) are publicly accessible on the internet. Any party with the API key can use or abuse these resources.
+- **File:** `infra/modules/ai-services.bicep` (lines 34, 50, 66)
+- **Fix:** Set `publicNetworkAccess: 'Disabled'` and configure network rules or Private Endpoints so only the Function App VNet can reach them (requires VNet integration).
+
+**S11. CORS allows `localhost:5173` in the production Bicep template**
+The Function App CORS configuration unconditionally includes `http://localhost:5173`. In production, this allows any attacker running a local dev server to make authenticated cross-origin requests to the production API.
+- **File:** `infra/modules/functions.bicep` (line 99)
+- **Fix:** Parameterise CORS origins by environment. Only include `localhost` for `dev` environment.
+
+**S12. No request payload size limits**
+There are no limits on JSON body size in `host.json` or function code. An attacker can submit multi-megabyte JSON payloads to any POST endpoint, consuming memory and compute.
+- **Files:** `backend/host.json`, all POST function handlers
+- **Fix:** Add `extensions.http.maxRequestBytes` in `host.json` (e.g. 5 MB). Additionally, validate string field lengths in each handler (e.g. `name` ≤ 100 chars, `blobName` ≤ 256 chars).
+
+**S13. Functions runtime storage account key stored in plain-text app settings**
+The `AzureWebJobsStorage` and `WEBSITE_CONTENTAZUREFILECONNECTIONSTRING` app settings in `functions.bicep` contain the full account key of the Functions-internal storage account. Anyone with access to the Function App configuration can read these keys.
+- **File:** `infra/modules/functions.bicep` (lines 106–111)
+- **Fix:** Use Managed Identity for the Functions runtime storage (`AzureWebJobsStorage__accountName` pattern) instead of connection strings with embedded keys.
+
+**S14. No secret rotation policy for AI service API keys**
+Custom Vision and AI Vision API keys are stored in Key Vault but there is no rotation automation or policy configured.
+- **Fix:** Add a Key Vault secret rotation policy or document a manual rotation schedule.
+
+---
+
+#### 🟢 Functional Gaps (Non-Security)
+
+**F1. Frontend pages are static stubs — no actual API integration**
+All four frontend pages (Catalog, AddGarment, DailyUpload, Dashboard) render hardcoded or mock data. None of them call the backend API. This means:
+- `AddGarment.tsx` form submit is a no-op (line 24: `// API integration in Issue #5`)
+- `Catalog.tsx` always shows the empty-state placeholder
+- `DailyUpload.tsx` uses a mock predict response (line 27–36)
+- `Dashboard.tsx` shows static `—` values
+- **Impact:** The E2E acceptance flow (Issue #15) cannot pass. Users cannot actually use the app.
+- **Fix:** Wire each page to the backend API using `fetch` through the SWA proxy (`/api/…`).
+
+**F2. `POST /garments` — `category` accepts any string (no enum validation)**
+The acceptance criteria specify categories like "dress", "top", "bottom", "jacket". The backend accepts any non-empty string.
+- **File:** `backend/src/functions/postGarment.ts` (line 77)
+- **Fix:** Validate `category` against an allow-list matching the frontend `CATEGORIES` array.
+
+**F3. `GET /garments` — no pagination**
+Issue #6 acceptance criteria: "Results are paginated or limited to a reasonable page size." The current implementation returns all garments with no limit.
+- **File:** `backend/src/services/garmentService.ts` (line 70–78)
+- **Fix:** Add `OFFSET`/`LIMIT` (or continuation token) support to the Cosmos DB query and accept `page`/`pageSize` query parameters.
+
+**F4. `GET /stats/summary` — fetches all wear events without pagination**
+For a user with thousands of wear events, this endpoint will be slow and expensive (Cosmos RU consumption).
+- **File:** `backend/src/functions/getStatsSummary.ts` (line 54–57)
+- **Fix:** Use Cosmos DB aggregation queries (`GROUP BY`, `COUNT`, `MAX`) instead of fetching all documents client-side.
+
+**F5. No retrain trigger exists for Custom Vision**
+Issue #10 acceptance criteria: "A retrain trigger exists (manual or automated) for when new garments are added." Training images are submitted, but the model is never actually retrained or republished.
+- **Fix:** Add a `POST /api/admin/retrain` endpoint or a timer-triggered function that calls the Custom Vision training and publish APIs.
+
+**F6. Unauthenticated requests return 400 instead of 401 when `REQUIRE_AUTH` is disabled**
+Issue #13 acceptance criteria: "Unauthenticated requests to protected API endpoints return HTTP 401." Currently, when `REQUIRE_AUTH` is not enabled, missing userId returns 400 (bad request) instead of 401.
+- **Files:** all function handlers
+- **Fix:** When userId is missing, always return 401 regardless of `REQUIRE_AUTH` setting — or better yet, always require auth (see S4).
+
+**F7. Key Vault secret population is not automated**
+Issue #13 acceptance criteria: "All secrets are stored in Key Vault." The Bicep templates create the Key Vault but do not populate any secrets. A manual `az keyvault secret set` step is required with no automation or CI integration.
+- **File:** `infra/modules/functions.bicep` (lines 162–168 comments), `infra/README.md`
+- **Fix:** Either populate secrets in Bicep using `Microsoft.KeyVault/vaults/secrets` resources, or add a GitHub Actions step to populate them post-deployment.
+
+**F8. `name` and other string fields have no maximum length**
+`name` in `POST /garments`, `blobName` in `POST /images/sas-url` — there is no upper bound on string length, risking storage abuse or UI rendering issues.
+- **Fix:** Add `maxLength` checks (e.g. `name` ≤ 100, `blobName` ≤ 256, `category` ≤ 50).
+
+---
+
+#### Summary — Issue #13.5 Checklist
+
+| # | Severity | Gap | Covered by future issue? |
+|---|----------|-----|--------------------------|
+| S1 | 🔴 Critical | SAS endpoint has no auth | No |
+| S2 | 🔴 Critical | Blob path traversal | No |
+| S3 | 🔴 Critical | IDOR on wear/confirm | No |
+| S4 | 🔴 Critical | Auth default is insecure | No |
+| S5 | 🔴 Critical | Functions directly accessible | No |
+| S6 | 🔴 Critical | Cosmos local auth enabled | No |
+| S7 | 🔴 Critical | SSRF via image URLs | No |
+| S8 | 🟡 High | Missing CSP header | No |
+| S9 | 🟡 High | No rate limiting | No |
+| S10 | 🟡 High | AI services publicly accessible | No |
+| S11 | 🟡 High | CORS allows localhost in prod | No |
+| S12 | 🟡 High | No payload size limits | No |
+| S13 | 🟡 High | Storage key in plain-text app settings | No |
+| S14 | 🟡 High | No secret rotation | No |
+| F1 | 🟢 Functional | Frontend is all stubs | Partially by #15 |
+| F2 | 🟢 Functional | No category enum validation | No |
+| F3 | 🟢 Functional | No pagination on GET /garments | No |
+| F4 | 🟢 Functional | Stats fetches all events | No |
+| F5 | 🟢 Functional | No retrain trigger | Partially by #16 |
+| F6 | 🟢 Functional | 400 instead of 401 on missing auth | No |
+| F7 | 🟢 Functional | Key Vault secrets not auto-populated | No |
+| F8 | 🟢 Functional | No max-length on string inputs | No |
+
+**Acceptance Criteria:**
+- [ ] All 🔴 Critical items (S1–S7) are fixed and verified by unit tests.
+- [ ] All 🟡 High items (S8–S14) are addressed or documented as accepted risk with a mitigation timeline.
+- [ ] 🟢 Functional items are triaged — fix now or defer to the appropriate open issue with a cross-reference.
+- [ ] A follow-up security test pass confirms no regressions.
+
+**Priority Order (recommended):**
+1. S4 + S5 (auth enforcement) — everything else depends on authentication working.
+2. S1 + S2 (SAS endpoint) — unauthenticated blob access.
+3. S3 (IDOR) — cross-user data mutation.
+4. S7 (SSRF) — server-side request forgery via AI services.
+5. S6 (Cosmos local auth) — infra hardening.
+6. S8–S14 (defence-in-depth) — can be done in parallel.
+7. F1–F8 (functional) — address alongside or defer to relevant issues.
+
+---
+
 ### Issue #14: Setup Observability (Application Insights & Log Analytics)
 
 - [ ] **Status:** Open
@@ -498,6 +675,7 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 | #11 | Add Fallback: Embeddings & Similarity Search | MVP | [x] Done |
 | #12 | Implement Confidence-Based UX Guardrails | MVP | [x] Done |
 | #13 | Setup Identity & Security | MVP | [x] Done |
+| #13.5 | Security Hardening & Implementation Gap Remediation | MVP | [ ] Open |
 | #14 | Setup Observability | MVP | [ ] Open |
 | #15 | End-to-End Phone-Testable Flow Validation | MVP | [ ] Open |
 | #16 | Retraining Pipeline from User Corrections | Phase 2 | [ ] Open |
