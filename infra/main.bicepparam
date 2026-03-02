@@ -4,7 +4,7 @@
 
 using 'main.bicep'
 
-param location = 'westeurope'
+param location = 'northeurope'
 param environmentName = 'dev'
 param tags = {
   project: 'wardrobe'

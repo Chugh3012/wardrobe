@@ -6,7 +6,7 @@
  * outfit embedding and the stored catalog embeddings determines the best match.
  *
  * Required environment variables:
- *   AI_VISION_ENDPOINT  — e.g. https://westeurope.api.cognitive.microsoft.com
+ *   AI_VISION_ENDPOINT  — e.g. https://northeurope.api.cognitive.microsoft.com
  *   AI_VISION_KEY       — API key for the Azure AI Vision resource
  */
 

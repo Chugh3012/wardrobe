@@ -70,7 +70,7 @@ jobs:
         continue-on-error: true
         run: |
           az deployment sub what-if \
-            --location westeurope \
+            --location northeurope \
             --template-file infra/main.bicep \
             --parameters infra/main.bicepparam \
             --parameters environmentName=${{ github.event.inputs.environment || 'dev' }}
@@ -114,7 +114,7 @@ jobs:
         run: |
           output=$(az deployment sub create \
             --name "wardrobe-infra-$(date +%Y%m%d%H%M%S)" \
-            --location westeurope \
+            --location northeurope \
             --template-file infra/main.bicep \
             --parameters infra/main.bicepparam \
             --parameters environmentName=${{ github.event.inputs.environment || 'dev' }} \

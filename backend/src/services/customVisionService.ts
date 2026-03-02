@@ -10,9 +10,9 @@
  * embedding fallback (Issue #11) or stub predictions.
  *
  * Required environment variables (stored in Key Vault, surfaced via App Settings):
- *   CUSTOM_VISION_TRAINING_ENDPOINT  — e.g. https://westeurope.api.cognitive.microsoft.com
+ *   CUSTOM_VISION_TRAINING_ENDPOINT  — e.g. https://northeurope.api.cognitive.microsoft.com
  *   CUSTOM_VISION_TRAINING_KEY       — API key for the training resource
- *   CUSTOM_VISION_PREDICTION_ENDPOINT — e.g. https://westeurope.api.cognitive.microsoft.com
+ *   CUSTOM_VISION_PREDICTION_ENDPOINT — e.g. https://northeurope.api.cognitive.microsoft.com
  *   CUSTOM_VISION_PREDICTION_KEY     — API key for the prediction resource
  *   CUSTOM_VISION_PROJECT_ID         — GUID of the Custom Vision project
  *   CUSTOM_VISION_PUBLISHED_NAME     — iteration publish name (e.g. "latest")
