@@ -138,7 +138,7 @@ export async function postGarment(
 
     // Submit catalog images to Custom Vision for training (Issue #10).
     // This is fire-and-forget — failures are logged but do not block the response.
-    submitTrainingImages(garmentId(garment), catalogImageUrls).catch((err) =>
+    submitTrainingImages(garment.id, catalogImageUrls).catch((err) =>
       context.log(`Custom Vision training submission failed: ${err}`)
     );
 
@@ -155,11 +155,6 @@ export async function postGarment(
       jsonBody: { error: "Failed to create garment. Check server logs." },
     };
   }
-}
-
-/** Helper to get garmentId for Custom Vision training tag. */
-function garmentId(garment: { id: string }): string {
-  return garment.id;
 }
 
 app.http("postGarment", {
