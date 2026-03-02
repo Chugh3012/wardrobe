@@ -223,14 +223,16 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'REQUIRE_AUTH'
           value: 'true'
-        }        // ── Observability (Issue #14) ─────────────────────────────────────────────────
+        }
+        // ── Observability (Issue #14) ───────────────────────────────────────────
         // Application Insights connection string enables automatic request
         // tracing, dependency tracking, and custom telemetry via the
         // Node.js Application Insights SDK.
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: appInsightsConnectionString
-        }      ]
+        }
+      ]
     }
   }
 }
