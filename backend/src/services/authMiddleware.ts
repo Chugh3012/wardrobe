@@ -82,17 +82,7 @@ function extractFromClientPrincipal(
     const json = Buffer.from(headerValue, "base64").toString("utf8");
     const principal: ClientPrincipal = JSON.parse(json);
 
-    // DEBUG: log the full decoded principal structure
-    console.log("[AUTH-DEBUG] decoded x-ms-client-principal:", JSON.stringify(principal));
-    console.log("[AUTH-DEBUG] top-level keys:", Object.keys(principal ?? {}));
-    console.log("[AUTH-DEBUG] principal.userId:", principal?.userId, "type:", typeof principal?.userId);
-    console.log("[AUTH-DEBUG] principal.claims is array:", Array.isArray(principal?.claims), "length:", principal?.claims?.length);
-    if (Array.isArray(principal?.claims)) {
-      console.log("[AUTH-DEBUG] claim types present:", principal.claims!.map((c) => c.typ));
-    }
-
     if (!principal || typeof principal !== "object") {
-      console.log("[AUTH-DEBUG] principal is falsy or not an object, returning null");
       return null;
     }
 
@@ -101,7 +91,6 @@ function extractFromClientPrincipal(
     // ── Format 1: SWA — top-level `userId` field ────────────────────────
     if (typeof principal.userId === "string") {
       userId = principal.userId.trim();
-      console.log("[AUTH-DEBUG] extracted userId via SWA format:", userId);
     }
 
     // ── Format 2: App Service EasyAuth v2 — `claims` array ─────────────
@@ -112,23 +101,17 @@ function extractFromClientPrincipal(
         );
         if (claim) {
           userId = claim.val.trim();
-          console.log("[AUTH-DEBUG] extracted userId via claims[", claimType, "]:", userId);
           break;
         }
       }
-      if (!userId) {
-        console.log("[AUTH-DEBUG] no matching OID claim found in claims array");
-      }
     }
 
-    if (!userId) { console.log("[AUTH-DEBUG] userId is empty after all extraction attempts"); return null; }
-    if (userId.length > MAX_USER_ID_LENGTH) { console.log("[AUTH-DEBUG] userId exceeds max length:", userId.length); return null; }
-    if (!SAFE_USER_ID_RE.test(userId)) { console.log("[AUTH-DEBUG] userId failed regex validation:", userId); return null; }
+    if (!userId) return null;
+    if (userId.length > MAX_USER_ID_LENGTH) return null;
+    if (!SAFE_USER_ID_RE.test(userId)) return null;
 
-    console.log("[AUTH-DEBUG] final extracted userId:", userId);
     return userId;
-  } catch (err) {
-    console.log("[AUTH-DEBUG] extractFromClientPrincipal threw:", err);
+  } catch {
     return null;
   }
 }
@@ -148,24 +131,11 @@ function extractFromClientPrincipal(
 export function extractUserId(
   request: HttpRequest,
 ): string | null {
-  // DEBUG: log all auth-related headers
-  console.log("[AUTH-DEBUG] === extractUserId called ===");
-  console.log("[AUTH-DEBUG] x-ms-client-principal present:", !!request.headers.get("x-ms-client-principal"));
-  console.log("[AUTH-DEBUG] x-ms-client-principal-id present:", !!request.headers.get("x-ms-client-principal-id"));
-  console.log("[AUTH-DEBUG] x-ms-client-principal-id value:", request.headers.get("x-ms-client-principal-id"));
-  console.log("[AUTH-DEBUG] authorization present:", !!request.headers.get("authorization"));
-  console.log("[AUTH-DEBUG] REQUIRE_AUTH:", process.env["REQUIRE_AUTH"], "isAuthRequired:", isAuthRequired());
-
   // ── Primary: full base64 client-principal payload (SEC-P5) ──────────────
   const principalHeader = request.headers.get("x-ms-client-principal");
   if (principalHeader && principalHeader.trim()) {
-    console.log("[AUTH-DEBUG] using primary path (x-ms-client-principal), length:", principalHeader.length);
-    const result = extractFromClientPrincipal(principalHeader.trim());
-    console.log("[AUTH-DEBUG] extractFromClientPrincipal returned:", result);
-    return result;
+    return extractFromClientPrincipal(principalHeader.trim());
   }
-
-  console.log("[AUTH-DEBUG] no x-ms-client-principal header, checking fallback");
 
   // ── Fallback: plain-text header (local dev only) ────────────────────────
   if (!isAuthRequired()) {
@@ -174,12 +144,10 @@ export function extractUserId(
       const trimmed = headerValue.trim();
       if (trimmed.length > MAX_USER_ID_LENGTH) return null;
       if (!SAFE_USER_ID_RE.test(trimmed)) return null;
-      console.log("[AUTH-DEBUG] using fallback x-ms-client-principal-id:", trimmed);
       return trimmed;
     }
   }
 
-  console.log("[AUTH-DEBUG] no userId found, returning null");
   return null;
 }
 

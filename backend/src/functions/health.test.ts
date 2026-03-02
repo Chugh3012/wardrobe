@@ -14,6 +14,6 @@ describe("GET /api/health", () => {
     const response = await health(request, context);
 
     expect(response.status).toBe(200);
-    expect((response.jsonBody as Record<string, unknown>).status).toBe("ok");
+    expect(response.jsonBody).toEqual({ status: "ok" });
   });
 });

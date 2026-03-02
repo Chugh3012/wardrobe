@@ -39,12 +39,9 @@ export async function getStatsSummary(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  context.log("[STATS-DEBUG] getStatsSummary called, url:", request.url);
   const userId = extractUserId(request);
-  context.log("[STATS-DEBUG] extractUserId returned:", userId);
 
   if (!userId) {
-    context.log("[STATS-DEBUG] returning 401 — no userId");
     return unauthorizedResponse();
   }
 
