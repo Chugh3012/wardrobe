@@ -108,6 +108,31 @@ jobs:
             echo "Cosmos DB account state: $state — no cleanup needed."
           fi
 
+      # Purge any soft-deleted Cognitive Services accounts that block re-creation.
+      # When resources move between regions (or are deleted), Azure keeps them
+      # in a soft-deleted state for 48 hours, blocking new deployments.
+      - name: Purge soft-deleted Cognitive Services accounts
+        continue-on-error: true
+        run: |
+          env=${{ github.event.inputs.environment || 'dev' }}
+          for name in "cv-train-wardrobe-${env}" "cv-pred-wardrobe-${env}" "cv-vision-wardrobe-${env}"; do
+            echo "Checking soft-deleted account: $name"
+            if az cognitiveservices account list-deleted --query "[?name=='$name']" --output tsv | grep -q "$name"; then
+              echo "::warning::Purging soft-deleted Cognitive Services account '$name'."
+              az cognitiveservices account purge \
+                --name "$name" \
+                --resource-group "rg-wardrobe-${env}" \
+                --location westeurope 2>/dev/null || \
+              az cognitiveservices account purge \
+                --name "$name" \
+                --resource-group "rg-wardrobe-${env}" \
+                --location northeurope 2>/dev/null || \
+              echo "Could not purge '$name' — restore:true in Bicep will handle it."
+            else
+              echo "No soft-deleted account found for '$name'."
+            fi
+          done
+
       # Deploy the Bicep template at subscription scope.
       - name: Deploy Bicep
         id: deploy
