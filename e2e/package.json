@@ -1,0 +1,19 @@
+{
+  "name": "wardrobe-e2e",
+  "private": true,
+  "version": "0.1.0",
+  "description": "End-to-end tests: Azure resources, API endpoints, and UI (Playwright)",
+  "type": "module",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:azure": "npx playwright test --grep @azure",
+    "test:api": "npx playwright test --grep @api",
+    "test:ui": "npx playwright test --grep @ui",
+    "test:headed": "npx playwright test --headed",
+    "report": "npx playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0",
+    "@types/node": "^20.17.0"
+  }
+}

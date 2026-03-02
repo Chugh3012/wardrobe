@@ -191,7 +191,8 @@ This keeps initial cost low while preserving a production-shaped architecture.
 The application implements defence-in-depth across multiple layers:
 
 ### Network & Access Control
-- **Azure Static Web Apps EasyAuth** — Entra ID (AAD) authentication enforced at the SWA edge before requests reach the backend.
+- **SWA Auth Architecture (Pattern A)** — The SPA shell (HTML/JS/CSS) is publicly accessible. Only `/api/*` routes require `["authenticated"]` role at the SWA edge. The React app performs a client-side auth check via `/.auth/me` on mount and redirects unauthenticated users to `/.auth/login/aad`. This is the recommended architecture for SPAs on Azure Static Web Apps — it avoids MIME-type errors caused by server-side auth blocking static assets.
+- **Entra ID (AAD) authentication** — SWA EasyAuth configured with a dedicated app registration (`wardrobe-swa-auth`). Disabled identity providers (GitHub, Twitter) return 404. `/login` rewrites to `/.auth/login/aad`.
 - **Function App IP restrictions** — `ipSecurityRestrictions` allow only `AzureCloud` service-tag traffic; all other inbound is denied. SCM site uses the same rules.
 - **No public Cosmos DB / AI endpoints** — Cosmos DB disables local auth (`disableLocalAuth: true`); AI services have `publicNetworkAccess: Disabled`.
 
@@ -202,6 +203,7 @@ The application implements defence-in-depth across multiple layers:
 - **Service principal least-privilege** — `Owner` is scoped to `rg-wardrobe-dev` only (downscoped after first deployment).
 
 ### Application-Level
+- **Client-side auth gate** — `App.tsx` calls `checkAuth()` (which hits `/.auth/me`) on mount. If no `clientPrincipal` is found, the user is redirected to `/.auth/login/aad`. The app renders a "Signing in…" loading state until auth is confirmed. In local dev (Vite without SWA), the fetch fails gracefully and allows through.
 - **Base64 client principal validation** — Auth middleware decodes and validates the `x-ms-client-principal` base64 header injected by EasyAuth, extracting `userId` from the structured JSON. Plain-text header fallback is only accepted when `REQUIRE_AUTH=false` (local development).
 - **Per-user blob scoping** — SAS URLs are scoped to `images/{userId}/` prefixes, preventing cross-user access.
 - **Content-type restrictions** — SAS upload tokens are restricted to allowed image MIME types (jpeg, png, webp, heic, heif).
@@ -210,6 +212,7 @@ The application implements defence-in-depth across multiple layers:
 - **Monthly budget alert** — A `Microsoft.Consumption/budgets` resource enforces a $5/month threshold with notifications at 80%, 100%, and 120%.
 
 ### Observability Security
+- **Service worker v2 (auth-aware)** — `sw.js` uses a network-first strategy for navigation requests (so the fresh `/.auth/me` state is always checked), never intercepts `/.auth/` or `/api/` paths, and only cache-first for shell assets (manifest, icons). Old caches are purged on activation.
 - **Connection string (not secret)** — The App Insights connection string only permits writing telemetry; it cannot read data. Safe to embed in client-side code and app settings.
 - **Property-key sanitization** — Backend `telemetryService.ts` strips sensitive keys (token, password, secret, authorization, cookie, key, credential) from custom event and exception properties before sending to App Insights.
 - **Try/catch isolation** — Both backend and frontend telemetry init are wrapped in try/catch blocks. A telemetry failure (e.g. malformed connection string) never crashes the application.

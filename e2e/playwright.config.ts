@@ -1,0 +1,74 @@
+import { defineConfig, devices } from '@playwright/test';
+
+/**
+ * Wardrobe Tracker — E2E Test Config
+ *
+ * Environment variables (set in .env or CI):
+ *   AZURE_SUBSCRIPTION_ID  — Azure subscription
+ *   AZURE_RESOURCE_GROUP   — e.g. rg-wardrobe-dev
+ *   SWA_URL                — e.g. https://swa-wardrobe-dev.azurestaticapps.net
+ *   FUNC_URL               — e.g. https://func-wardrobe-dev.azurewebsites.net
+ *   ENVIRONMENT_NAME       — dev | staging | prod (default: dev)
+ *
+ * UI page rendering tests run against a local Vite preview server
+ * (built from frontend/), since the deployed SWA uses EasyAuth that
+ * redirects unauthenticated access at the HTTP level (302) before the
+ * React app loads. The SWA-specific tests (auth redirect, PWA manifest,
+ * security headers, SPA fallback) still run against the live SWA URL.
+ */
+
+const LOCAL_UI_PORT = 5173;
+const LOCAL_UI_BASE = `http://localhost:${LOCAL_UI_PORT}`;
+
+export default defineConfig({
+  testDir: './tests',
+  fullyParallel: false,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 1 : 0,
+  workers: 1,
+  reporter: [
+    ['html', { open: 'never' }],
+    ['list'],
+  ],
+  timeout: 60_000,
+  use: {
+    baseURL: process.env.SWA_URL || 'http://localhost:4280',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+  },
+  projects: [
+    {
+      name: 'azure-resources',
+      testMatch: /azure-resources\.spec\.ts/,
+    },
+    {
+      name: 'api-endpoints',
+      testMatch: /api-endpoints\.spec\.ts/,
+    },
+    {
+      name: 'ui-mobile',
+      testMatch: /ui-.*\.spec\.ts/,
+      use: {
+        ...devices['iPhone 14'],
+        baseURL: LOCAL_UI_BASE,
+        serviceWorkers: 'block',
+      },
+    },
+    {
+      name: 'ui-desktop',
+      testMatch: /ui-.*\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: LOCAL_UI_BASE,
+        serviceWorkers: 'block',
+      },
+    },
+  ],
+  /* Start Vite preview server for UI tests */
+  webServer: {
+    command: 'cd ../frontend && npm run build && npx vite preview --port 5173',
+    port: LOCAL_UI_PORT,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
+});

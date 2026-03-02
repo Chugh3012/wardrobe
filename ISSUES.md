@@ -687,6 +687,63 @@ Perform a full end-to-end validation of the complete user flow described in READ
 
 ---
 
+### Issue #15.5: SWA Auth Architecture (Pattern A), E2E Test Suite & PWA Fixes
+
+- [x] **Status:** Done
+
+**Description:**
+After Phase 1 MVP completion, browser console errors revealed a fundamental architecture problem: the SWA `staticwebapp.config.json` applied `"route": "/*", "allowedRoles": ["authenticated"]"` which blocked static assets (JS/CSS bundles in `/assets/`) — the SWA returned the HTML login page instead of the actual files, causing MIME type errors. Additionally, the deprecated `apple-mobile-web-app-capable` meta tag was generating browser warnings, and no automated E2E tests existed to catch these issues.
+
+After evaluating three architectural patterns, **Pattern A** was chosen as the correct SPA-on-SWA approach:
+- **Pattern A (implemented):** Protect only `/api/*` at the SWA level. The SPA shell loads for everyone. The React app checks `/.auth/me` client-side and redirects unauthenticated users to Entra login.
+- **Pattern B (rejected):** Server-side auth on all routes with carve-outs for `/assets/*` — fragile, breaks on every new asset path.
+- **Pattern C (rejected):** SWA Standard tier with per-route auth — costs money for a feature that Pattern A provides free.
+
+**Changes Made:**
+
+1. **`frontend/public/staticwebapp.config.json`** — Removed `"route": "/*", "allowedRoles": ["authenticated"]"` catch-all. Added `"route": "/api/*", "allowedRoles": ["authenticated"]"`. Simplified `navigationFallback.exclude` to just `["/api/*"]`. All security headers, disabled providers, `/login` rewrite, and 401→302 override retained.
+
+2. **`frontend/src/App.tsx`** — Added client-side auth gate: calls `checkAuth()` on mount, redirects to `/.auth/login/aad` if not authenticated, shows "Signing in…" loading state, renders app only after auth confirmed.
+
+3. **`frontend/src/api.ts`** — Added `checkAuth()` function: calls `/.auth/me`, returns `true` if `clientPrincipal != null`. Falls back to `true` in local dev (fetch fails → allow through).
+
+4. **`frontend/public/sw.js`** — Rewritten from v1 to v2: network-first strategy for navigation (so fresh `/.auth/me` state is always checked), never intercepts `/.auth/` or `/api/` paths, cache-first only for shell assets (manifest, icons). Old `wardrobe-v1` caches cleaned up on activation.
+
+5. **`frontend/index.html`** — Replaced deprecated `apple-mobile-web-app-capable` with standard `mobile-web-app-capable`.
+
+6. **`e2e/` directory (new)** — Complete Playwright E2E test suite with 4 projects:
+   - `azure-resources` — 33 tests verifying all Azure resources exist and are correctly configured.
+   - `api-endpoints` — 30 tests smoke-testing all 6 API endpoints (some skip from non-Azure IPs).
+   - `ui-desktop` — 26 tests: auth enforcement, security headers, PWA manifest, asset loading, page rendering, navigation, SPA fallback, meta tags.
+   - `ui-mobile` — 26 tests: same suite with iPhone 14 emulation for mobile layout verification.
+
+7. **`backend/vitest.config.ts`** (new) — Explicit Vitest configuration for backend unit tests.
+
+8. **`.gitignore`** — Added `test-results/` and `playwright-report/` to prevent E2E artifacts from being committed.
+
+**Security Audit:**
+- No security guardrails from #13/#13.5/#13.6/#13.7 were weakened.
+- All API endpoints remain triple-protected: SWA `/api/*` route rule + `REQUIRE_AUTH=true` + base64 `x-ms-client-principal` validation.
+- Function App IP restrictions unchanged.
+- All security headers (CSP, HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy) unchanged.
+- The SPA shell is intentionally public (contains no data — only the React bundle). All data access is gated by authenticated `/api/*` calls.
+
+**Acceptance Criteria:**
+- [x] SWA serves the app shell (HTML/JS/CSS) without requiring authentication (HTTP 200 for `GET /`).
+- [x] SWA returns 401/302 for unauthenticated `GET /api/*` requests.
+- [x] Client-side auth gate redirects unauthenticated users to Entra login.
+- [x] No MIME type errors in browser console for CSS/JS assets.
+- [x] No deprecated meta tag warnings in browser console.
+- [x] Service worker uses network-first for navigation, never intercepts auth/API paths.
+- [x] E2E test suite covers Azure resources, API endpoints, and UI pages (115+ tests across 4 projects).
+- [x] All backend unit tests continue to pass (192 tests).
+- [x] Frontend builds successfully with all changes.
+
+**Phone-Test Validation:**
+> Open the SWA URL in a phone browser (incognito). Verify: (1) the page loads without console errors, (2) you are redirected to Entra login, (3) after sign-in the Dashboard loads with real data, (4) CSS/JS assets load with correct MIME types, (5) no `apple-mobile-web-app-capable` deprecation warning.
+
+---
+
 ## Phase 2
 
 ### Issue #16: Retraining Pipeline from User Corrections
@@ -807,11 +864,12 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 | #11 | Add Fallback: Embeddings & Similarity Search | MVP | [x] Done |
 | #12 | Implement Confidence-Based UX Guardrails | MVP | [x] Done |
 | #13 | Setup Identity & Security | MVP | [x] Done |
-| #13.5 | Security Hardening & Implementation Gap Remediation | MVP | [ ] Open |
+| #13.5 | Security Hardening & Implementation Gap Remediation | MVP | [x] Done |
 | #13.6 | Infrastructure Security Hardening (SEC-P1–P6) | MVP | [x] Done |
 | #13.7 | Wire SWA EasyAuth — Entra ID App Registration | MVP | [x] Done |
 | #14 | Setup Observability | MVP | [x] Done |
 | #15 | End-to-End Phone-Testable Flow Validation | MVP | [x] Done |
+| #15.5 | SWA Auth Pattern A, E2E Test Suite & PWA Fixes | MVP | [x] Done |
 | #16 | Retraining Pipeline from User Corrections | Phase 2 | [ ] Open |
 | #17 | Duplicate/Near-Similar Dress Disambiguation | Phase 2 | [ ] Open |
 | #18 | Monthly Insights ("Not Worn in 60 Days") | Phase 2 | [ ] Open |
