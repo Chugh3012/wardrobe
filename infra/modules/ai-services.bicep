@@ -37,7 +37,6 @@ resource cvTraining 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   properties: {
     customSubDomainName: 'cv-train-wardrobe-${environmentName}'
     publicNetworkAccess: 'Disabled'
-    restore: true
   }
 }
 
@@ -54,7 +53,6 @@ resource cvPrediction 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   properties: {
     customSubDomainName: 'cv-pred-wardrobe-${environmentName}'
     publicNetworkAccess: 'Disabled'
-    restore: true
   }
 }
 
@@ -71,7 +69,6 @@ resource computerVision 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   properties: {
     customSubDomainName: 'cv-vision-wardrobe-${environmentName}'
     publicNetworkAccess: 'Disabled'
-    restore: true
   }
 }
 
