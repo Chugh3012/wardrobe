@@ -47,7 +47,7 @@ jobs:
         run: npm test
 
       - name: Upload build artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: backend-dist
@@ -61,7 +61,7 @@ jobs:
   deploy:
     name: Deploy to Azure Functions
     needs: build_and_test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: dev
 

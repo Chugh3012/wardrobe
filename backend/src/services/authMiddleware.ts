@@ -1,13 +1,20 @@
 /**
  * Authentication middleware for Azure Functions.
  *
- * Extracts the authenticated userId from the `x-ms-client-principal-id`
+ * Extracts the authenticated userId from the `x-ms-client-principal`
  * header injected by Azure Static Web Apps / Azure App Service EasyAuth.
  *
- * **Security (S4):** Body-based userId fallback has been removed to prevent
- * user impersonation.  The default for `REQUIRE_AUTH` is now `true` (secure
- * by default).  Set `REQUIRE_AUTH=false` only for local development without
- * EasyAuth — in that case callers must still supply the header manually.
+ * **Security (S4 + SEC-P5):** The middleware now decodes and validates
+ * the full base64-encoded `x-ms-client-principal` JSON payload rather
+ * than trusting the plain-text `x-ms-client-principal-id` header alone.
+ * This makes header spoofing significantly harder because an attacker
+ * must supply a valid JSON structure with the correct schema.
+ *
+ * Fallback: If `x-ms-client-principal` is absent but
+ * `x-ms-client-principal-id` is present (e.g. local dev), the plain-text
+ * header is still accepted when `REQUIRE_AUTH` is `"false"`.
+ *
+ * The default for `REQUIRE_AUTH` is `true` (secure by default).
  */
 
 import type { HttpRequest } from "@azure/functions";
@@ -23,27 +30,83 @@ const SAFE_USER_ID_RE = /^[a-zA-Z0-9@._-]+$/;
 /** Maximum length for a userId value. */
 const MAX_USER_ID_LENGTH = 128;
 
+/**
+ * Minimal shape of the decoded `x-ms-client-principal` JSON.
+ * @see https://learn.microsoft.com/en-us/azure/static-web-apps/user-information
+ */
+interface ClientPrincipal {
+  identityProvider?: string;
+  userId?: string;
+  userDetails?: string;
+  userRoles?: string[];
+}
+
 /** Returns true when strict authentication enforcement is enabled (default). */
 export function isAuthRequired(): boolean {
   return process.env["REQUIRE_AUTH"] !== "false";
 }
 
 /**
+ * Attempts to decode the `x-ms-client-principal` base64 header and
+ * extract the userId from within the JSON payload.  Returns `null` on
+ * any validation failure.
+ */
+function extractFromClientPrincipal(
+  headerValue: string,
+): string | null {
+  try {
+    const json = Buffer.from(headerValue, "base64").toString("utf8");
+    const principal: ClientPrincipal = JSON.parse(json);
+
+    if (
+      !principal ||
+      typeof principal !== "object" ||
+      typeof principal.userId !== "string"
+    ) {
+      return null;
+    }
+
+    const userId = principal.userId.trim();
+    if (!userId) return null;
+    if (userId.length > MAX_USER_ID_LENGTH) return null;
+    if (!SAFE_USER_ID_RE.test(userId)) return null;
+
+    return userId;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Extracts the userId from the request.
  *
- * Only the `x-ms-client-principal-id` header (set by Azure EasyAuth / SWA
- * auth) is accepted.  Returns `null` when the header is absent, empty, or
- * contains characters outside the safe allow-list.
+ * Primary: decodes the `x-ms-client-principal` base64 header (set by
+ * Azure EasyAuth / SWA auth) and extracts `userId` from the JSON payload.
+ *
+ * Fallback (dev only, `REQUIRE_AUTH=false`): accepts
+ * `x-ms-client-principal-id` plain-text header for local development
+ * without EasyAuth.
+ *
+ * Returns `null` when no valid userId can be extracted.
  */
 export function extractUserId(
   request: HttpRequest,
 ): string | null {
-  const headerValue = request.headers.get("x-ms-client-principal-id");
-  if (headerValue && headerValue.trim()) {
-    const trimmed = headerValue.trim();
-    if (trimmed.length > MAX_USER_ID_LENGTH) return null;
-    if (!SAFE_USER_ID_RE.test(trimmed)) return null;
-    return trimmed;
+  // ── Primary: full base64 client-principal payload (SEC-P5) ──────────────
+  const principalHeader = request.headers.get("x-ms-client-principal");
+  if (principalHeader && principalHeader.trim()) {
+    return extractFromClientPrincipal(principalHeader.trim());
+  }
+
+  // ── Fallback: plain-text header (local dev only) ────────────────────────
+  if (!isAuthRequired()) {
+    const headerValue = request.headers.get("x-ms-client-principal-id");
+    if (headerValue && headerValue.trim()) {
+      const trimmed = headerValue.trim();
+      if (trimmed.length > MAX_USER_ID_LENGTH) return null;
+      if (!SAFE_USER_ID_RE.test(trimmed)) return null;
+      return trimmed;
+    }
   }
 
   return null;

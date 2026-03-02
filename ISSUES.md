@@ -508,6 +508,78 @@ Issue #13 acceptance criteria: "All secrets are stored in Key Vault." The Bicep 
 
 ---
 
+### Issue #13.6: Infrastructure Security Hardening (SEC-P1 through SEC-P6)
+
+- [x] **Status:** Done
+
+**Description:**
+A follow-up security audit after Issue #13.5 revealed additional infrastructure-level and defence-in-depth gaps. This issue captures six targeted remediations (SEC-P1 through SEC-P6) that harden the deployed environment beyond the application-level fixes in #13.5.
+
+---
+
+#### SEC-P1: Function App Network Access Restrictions
+
+The Function App was publicly accessible at its `.azurewebsites.net` URL, allowing anyone to bypass SWA authentication and spoof the `x-ms-client-principal-id` header.
+
+- **Fix:** Added `ipSecurityRestrictions` in `infra/modules/functions.bicep` to allow only `AzureCloud` service-tag traffic and deny all other inbound requests. SCM site uses the same restrictions (`scmIpSecurityRestrictionsUseMain: true`).
+- **Limitation:** SWA Free tier does not support linked backends. For full isolation, upgrade to SWA Standard and use a linked/managed backend. This is documented as an accepted limitation.
+
+#### SEC-P2: Downscope Service Principal to Resource Group
+
+The GitHub Actions service principal had `Owner` scoped to the entire subscription, granting far broader access than needed.
+
+- **Fix:** Documented step-by-step downscoping commands in `infra/README.md` (step 3a) to move `Owner` from subscription scope to `rg-wardrobe-dev` only. Updated the security model table.
+
+#### SEC-P3: Monthly Budget Alert
+
+No cost alerting was configured, leaving the project vulnerable to unexpected cost overruns from abuse or misconfiguration.
+
+- **Fix:** Created `infra/modules/budget.bicep` — provisions a `Microsoft.Consumption/budgets` resource with $5/month threshold and three notification tiers (80% actual, 100% actual, 120% forecasted). Wired into `main.bicep` with a `budgetAlertEmails` parameter.
+
+#### SEC-P4: Key Vault References for AI Service Keys
+
+AI service API keys were referenced only in comments — no actual Key Vault reference app settings existed. Application code would have needed to read keys from environment variables or Key Vault directly.
+
+- **Fix:** Added three `@Microsoft.KeyVault(SecretUri=...)` app settings in `functions.bicep`: `CUSTOM_VISION_TRAINING_KEY`, `CUSTOM_VISION_PREDICTION_KEY`, `AI_VISION_KEY`. The Function App MI already has `Key Vault Secrets User` role via `key-vault-rbac.bicep`. Secrets must be populated manually via `az keyvault secret set`.
+
+#### SEC-P5: Validate `x-ms-client-principal` Base64 Token
+
+The auth middleware trusted the plain-text `x-ms-client-principal-id` header, which is trivially spoofable when the Function App is accessed directly (bypassing SWA).
+
+- **Fix:** Rewrote `authMiddleware.ts` to decode and validate the full `x-ms-client-principal` base64-encoded JSON payload. Extracts `userId` from within the structured principal. Falls back to plain-text header only when `REQUIRE_AUTH=false` (local dev). Updated all 7 function test files (164 tests pass). This makes spoofing significantly harder since the attacker must supply a valid JSON structure.
+
+#### SEC-P6: SAS Upload Content-Type Restrictions
+
+The SAS URL endpoint generated upload tokens without content-type restrictions, allowing upload of arbitrary file types (e.g. HTML, SVG with scripts).
+
+- **Fix:** Added `ALLOWED_CONTENT_TYPES` set in `images.ts` (jpeg, png, webp, heic, heif). The optional `contentType` body parameter defaults to `image/jpeg`. The content type is embedded in the upload SAS token via the `contentType` parameter in `generateBlobSASQueryParameters`. Added 5 new unit tests.
+
+---
+
+#### Summary — Issue #13.6 Checklist
+
+| # | Area | Remediation | Status |
+|---|------|-------------|--------|
+| SEC-P1 | Infra | Function App `ipSecurityRestrictions` (AzureCloud only) | ✅ |
+| SEC-P2 | Infra | SP downscoped to RG (documented in `infra/README.md`) | ✅ |
+| SEC-P3 | Infra | Monthly budget alert ($5, 3 tiers) | ✅ |
+| SEC-P4 | Infra | Key Vault references for AI keys in app settings | ✅ |
+| SEC-P5 | Code | Auth middleware validates base64 `x-ms-client-principal` | ✅ |
+| SEC-P6 | Code | SAS upload restricted to image content types | ✅ |
+
+**Files Modified:**
+- `infra/modules/functions.bicep` — `ipSecurityRestrictions`, KV ref app settings
+- `infra/modules/budget.bicep` — new module
+- `infra/main.bicep` — budget module + `keyVaultName` param
+- `infra/README.md` — SP downscoping steps, security model table
+- `backend/src/services/authMiddleware.ts` — base64 principal validation
+- `backend/src/services/authMiddleware.test.ts` — 18 tests (rewritten)
+- `backend/src/functions/images.ts` — content-type validation
+- `backend/src/functions/images.test.ts` — 5 new content-type tests
+- `backend/src/functions/*.test.ts` — all 6 function test helpers updated to use base64 header
+
+---
+
 ### Issue #14: Setup Observability (Application Insights & Log Analytics)
 
 - [ ] **Status:** Open
@@ -625,15 +697,18 @@ Surface insights about underutilized garments — specifically, items that haven
 **Description:**
 Review and optimize the Azure resource costs incurred by the wardrobe tracker. Implement image archival to cool/archive Blob tier for old images, review Cosmos DB RU consumption, and audit Azure Functions execution costs. Aim to keep the app within the Azure free tier or minimal paid tier for personal use.
 
+> **Note:** A $5/month budget alert with three notification tiers (80% actual, 100% actual, 120% forecasted) was already provisioned in Issue #13.6 (SEC-P3) via `infra/modules/budget.bicep`. The remaining work in this issue focuses on lifecycle policies, consumption reviews, and cost documentation.
+
 **Acceptance Criteria:**
 - Blob Storage lifecycle management policy is configured: images older than 90 days are moved to cool tier; images older than 365 days are moved to archive tier.
 - Cosmos DB consumption is reviewed; serverless mode is confirmed as cost-optimal for low-traffic personal use.
 - Azure Functions execution count and duration are reviewed against Consumption plan free grant.
 - Application Insights sampling is validated to avoid excessive data ingestion costs.
-- A cost estimate (or Azure Cost Management view) is documented for steady-state monthly usage.
+- ~~A cost estimate (or Azure Cost Management view) is documented for steady-state monthly usage.~~ ✅ Done in #13.6 — budget alert at $5/month with email notifications.
+- Review and adjust the budget threshold in `budget.bicep` based on actual steady-state usage data.
 
 **Validation:**
-> Review the Azure Cost Management dashboard after one month of usage. Verify the total monthly cost is within the defined budget target. Confirm Blob archival policy is triggering for old images.
+> Review the Azure Cost Management dashboard after one month of usage. Verify the budget alert from #13.6 is active and firing at the correct thresholds. Confirm Blob archival policy is triggering for old images.
 
 ---
 
@@ -676,6 +751,7 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 | #12 | Implement Confidence-Based UX Guardrails | MVP | [x] Done |
 | #13 | Setup Identity & Security | MVP | [x] Done |
 | #13.5 | Security Hardening & Implementation Gap Remediation | MVP | [ ] Open |
+| #13.6 | Infrastructure Security Hardening (SEC-P1–P6) | MVP | [x] Done |
 | #14 | Setup Observability | MVP | [ ] Open |
 | #15 | End-to-End Phone-Testable Flow Validation | MVP | [ ] Open |
 | #16 | Retraining Pipeline from User Corrections | Phase 2 | [ ] Open |

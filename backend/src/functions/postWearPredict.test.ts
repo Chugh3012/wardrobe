@@ -31,13 +31,17 @@ vi.mock("@azure/identity", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function encodeClientPrincipal(userId: string): string {
+  return Buffer.from(JSON.stringify({ userId })).toString("base64");
+}
+
 function makeRequest(body: unknown, userId?: string): HttpRequest {
   return new HttpRequest({
     method: "POST",
     url: "http://localhost:7071/api/wear/predict",
     headers: {
       "Content-Type": "application/json",
-      ...(userId ? { "x-ms-client-principal-id": userId } : {}),
+      ...(userId ? { "x-ms-client-principal": encodeClientPrincipal(userId) } : {}),
     },
     body: { string: JSON.stringify(body) },
   });

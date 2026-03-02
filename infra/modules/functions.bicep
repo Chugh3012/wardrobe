@@ -37,6 +37,9 @@ param cosmosDbDatabaseName string
 @description('Key Vault URI for secret references.')
 param keyVaultUri string = ''
 
+@description('Key Vault name for constructing Key Vault reference URIs (SEC-P4).')
+param keyVaultName string = ''
+
 @description('Custom Vision Training endpoint.')
 param cvTrainingEndpoint string = ''
 
@@ -96,6 +99,31 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
       nodeVersion: '~20'
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
+      // ── Access restrictions (SEC-P1) ────────────────────────────────────────
+      // On SWA Free tier, linked-backend is not available, so we restrict
+      // inbound traffic to Azure-sourced IPs only. This blocks direct internet
+      // access while allowing SWA (which runs inside Azure) to proxy requests.
+      // For production, upgrade SWA to Standard and use a linked backend or
+      // configure Private Endpoints for full network isolation.
+      ipSecurityRestrictions: [
+        {
+          action: 'Allow'
+          tag: 'ServiceTag'
+          ipAddress: 'AzureCloud'
+          name: 'AllowAzureServices'
+          priority: 100
+          description: 'Allow traffic from Azure services (includes SWA proxy).'
+        }
+        {
+          action: 'Deny'
+          ipAddress: 'Any'
+          name: 'DenyAllOther'
+          priority: 2147483647
+          description: 'Deny all non-Azure traffic.'
+        }
+      ]
+      ipSecurityRestrictionsDefaultAction: 'Deny'
+      scmIpSecurityRestrictionsUseMain: true
       cors: {
         allowedOrigins: union(
           [ 'https://${staticWebAppHostname}' ],
@@ -164,10 +192,24 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'AI_VISION_ENDPOINT'
           value: aiVisionEndpoint
         }
-        // API keys are stored as Key Vault references. Populate the secrets
-        // in Key Vault via: az keyvault secret set --vault-name <vaultName> --name <secretName> --value <secretValue>
-        // Then set these app settings to: @Microsoft.KeyVault(SecretUri=<secretUri>)
-        // Example: @Microsoft.KeyVault(SecretUri=https://kv-wardrobe-dev.vault.azure.net/secrets/CustomVisionTrainingKey)
+        // ── AI service API keys via Key Vault references (SEC-P4) ─────────────
+        // The Function App MI has "Key Vault Secrets User" role (key-vault-rbac.bicep).
+        // Secrets must be populated manually:
+        //   az keyvault secret set --vault-name <vaultName> --name CustomVisionTrainingKey --value <key>
+        //   az keyvault secret set --vault-name <vaultName> --name CustomVisionPredictionKey --value <key>
+        //   az keyvault secret set --vault-name <vaultName> --name AIVisionKey --value <key>
+        {
+          name: 'CUSTOM_VISION_TRAINING_KEY'
+          value: !empty(keyVaultName) ? '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/CustomVisionTrainingKey)' : ''
+        }
+        {
+          name: 'CUSTOM_VISION_PREDICTION_KEY'
+          value: !empty(keyVaultName) ? '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/CustomVisionPredictionKey)' : ''
+        }
+        {
+          name: 'AI_VISION_KEY'
+          value: !empty(keyVaultName) ? '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/AIVisionKey)' : ''
+        }
         {
           name: 'KEY_VAULT_URI'
           value: keyVaultUri
