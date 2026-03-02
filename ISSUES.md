@@ -480,8 +480,8 @@ Issue #13 acceptance criteria: "All secrets are stored in Key Vault." The Bicep 
 | S10 | 🟡 High | AI services publicly accessible | No |
 | S11 | 🟡 High | CORS allows localhost in prod | No |
 | S12 | 🟡 High | No payload size limits | No |
-| S13 | 🟡 High | Storage key in plain-text app settings | No |
-| S14 | 🟡 High | No secret rotation | No |
+| S13 | 🟡 High | Storage key in plain-text app settings | ✅ Identity-based `AzureWebJobsStorage__accountName` + RBAC |
+| S14 | 🟡 High | No secret rotation | ✅ Documented 90-day rotation schedule + `enablePurgeProtection` |
 | F1 | 🟢 Functional | Frontend is all stubs | Partially by #15 |
 | F2 | 🟢 Functional | No category enum validation | No |
 | F3 | 🟢 Functional | No pagination on GET /garments | No |
