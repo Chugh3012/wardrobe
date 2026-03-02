@@ -11,12 +11,23 @@ import {
   SASProtocol,
 } from "@azure/storage-blob";
 import { DefaultAzureCredential } from "@azure/identity";
+import {
+  extractUserId,
+  isAuthRequired,
+  unauthorizedResponse,
+} from "../services/authMiddleware.js";
 
 const BLOB_CONTAINER_NAME_DEFAULT = "images";
 
 /** SAS token validity window in seconds. */
 const UPLOAD_TTL_SECONDS = 5 * 60; // 5 minutes — tight window for upload
 const READ_TTL_SECONDS = 60 * 60; // 1 hour  — enough time to view on phone
+
+/** Maximum allowed length for the caller-supplied blobName segment. */
+const MAX_BLOB_NAME_LENGTH = 256;
+
+/** Only safe characters are allowed in the caller-supplied blobName. */
+const SAFE_BLOB_NAME_RE = /^[a-zA-Z0-9._/-]+$/;
 
 /**
  * Returns a BlobServiceClient authenticated via Managed Identity (DefaultAzureCredential).
@@ -34,18 +45,45 @@ function getBlobServiceClient(accountName: string): BlobServiceClient {
  *
  * Returns:
  * {
- *   "blobName": "some/path/image.jpg",
+ *   "blobName": "{userId}/some/path/image.jpg",
  *   "uploadUrl": "<SAS URL for PUT upload, valid 5 min>",
  *   "readUrl":   "<SAS URL for GET read,   valid 1 hr>"
  * }
  *
  * The caller uploads the image directly to `uploadUrl` (HTTP PUT), then
  * opens `readUrl` in a browser to verify the image is accessible.
+ *
+ * Security:
+ * - Requires authentication (S1).
+ * - Validates blobName and prefixes it with the userId to prevent path
+ *   traversal and cross-user access (S2).
  */
 export async function generateSasUrl(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  // ── Parse JSON body ───────────────────────────────────────────────────────
+  let body: { blobName?: unknown; userId?: unknown };
+  try {
+    body = (await request.json()) as { blobName?: unknown; userId?: unknown };
+  } catch {
+    return {
+      status: 400,
+      jsonBody: { error: "Invalid JSON body." },
+    };
+  }
+
+  // ── Authenticate (S1) ────────────────────────────────────────────────────
+  const userId = extractUserId(request, body as Record<string, unknown>);
+
+  if (!userId) {
+    if (isAuthRequired()) return unauthorizedResponse();
+    return {
+      status: 400,
+      jsonBody: { error: "'userId' is required." },
+    };
+  }
+
   // Read env vars at call time so tests can stub them per-test.
   const blobAccountName = process.env["BLOB_ACCOUNT_NAME"] ?? "";
   const blobContainerName = process.env["BLOB_CONTAINER_NAME"] ?? BLOB_CONTAINER_NAME_DEFAULT;
@@ -58,26 +96,51 @@ export async function generateSasUrl(
     };
   }
 
-  let blobName: string;
-  try {
-    const body = (await request.json()) as { blobName?: unknown };
-    if (!body.blobName || typeof body.blobName !== "string") {
-      return {
-        status: 400,
-        jsonBody: { error: "Request body must include a non-empty 'blobName' string." },
-      };
-    }
-    blobName = body.blobName.trim();
-    if (!blobName) {
-      return {
-        status: 400,
-        jsonBody: { error: "Request body must include a non-empty 'blobName' string." },
-      };
-    }
-  } catch {
+  // ── Validate blobName (S2) ───────────────────────────────────────────────
+  if (!body.blobName || typeof body.blobName !== "string") {
     return {
       status: 400,
-      jsonBody: { error: "Invalid JSON body." },
+      jsonBody: { error: "Request body must include a non-empty 'blobName' string." },
+    };
+  }
+  const rawBlobName = body.blobName.trim();
+  if (!rawBlobName) {
+    return {
+      status: 400,
+      jsonBody: { error: "Request body must include a non-empty 'blobName' string." },
+    };
+  }
+
+  if (rawBlobName.length > MAX_BLOB_NAME_LENGTH) {
+    return {
+      status: 400,
+      jsonBody: { error: `'blobName' must be at most ${MAX_BLOB_NAME_LENGTH} characters.` },
+    };
+  }
+
+  // Defense-in-depth: reject traversal before the regex check.
+  if (rawBlobName.includes("..")) {
+    return {
+      status: 400,
+      jsonBody: { error: "'blobName' must not contain '..' path traversal sequences." },
+    };
+  }
+
+  if (!SAFE_BLOB_NAME_RE.test(rawBlobName)) {
+    return {
+      status: 400,
+      jsonBody: { error: "'blobName' contains invalid characters." },
+    };
+  }
+
+  // Prefix with userId so each user is scoped to their own directory.
+  const blobName = `${userId}/${rawBlobName}`;
+
+  // Guard against exceeding Azure Blob Storage's 1024-character path limit.
+  if (blobName.length > 1024) {
+    return {
+      status: 400,
+      jsonBody: { error: "Resulting blob path is too long." },
     };
   }
 
