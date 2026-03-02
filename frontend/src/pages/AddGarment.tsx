@@ -121,7 +121,6 @@ export default function AddGarment({ onBack }: AddGarmentProps) {
                 type="file"
                 accept="image/*"
                 multiple
-                capture="environment"
                 className={styles.hiddenInput}
                 aria-label="Select up to 8 garment photos"
                 onChange={handleFiles}
