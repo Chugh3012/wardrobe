@@ -52,3 +52,29 @@ export async function listWearEvents(userId: string): Promise<WearEvent[]> {
     .fetchAll();
   return resources;
 }
+
+/** Aggregated wear-event summary for a single garment (F4). */
+export interface WearEventAggregation {
+  garmentId: string;
+  eventCount: number;
+  lastWornDate: string;
+}
+
+/**
+ * Returns per-garment aggregated wear-event statistics using a Cosmos DB
+ * GROUP BY query (F4). This avoids fetching every individual wear event
+ * for users with large histories.
+ *
+ * Returns one row per garment with eventCount and lastWornDate.
+ */
+export async function getWearEventAggregations(userId: string): Promise<WearEventAggregation[]> {
+  const { resources } = await getContainer().items
+    .query<WearEventAggregation>({
+      query:
+        "SELECT c.garmentId, COUNT(1) AS eventCount, MAX(c.createdAt) AS lastWornDate " +
+        "FROM c WHERE c.userId = @userId GROUP BY c.garmentId",
+      parameters: [{ name: "@userId", value: userId }],
+    })
+    .fetchAll();
+  return resources;
+}

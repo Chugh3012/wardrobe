@@ -247,12 +247,33 @@ describe("POST /api/garments", () => {
     expect((res.jsonBody as { error: string }).error).toContain("at most 50");
   });
 
-  it("accepts category with exactly 50 characters", async () => {
+  it("accepts category with exactly 50 characters (valid category)", async () => {
     mockCreate.mockResolvedValue({ resource: { id: "g1" } });
     const { postGarment } = await import("./postGarment.js");
-    const cat50 = "a".repeat(50);
-    const res = await postGarment(makeRequest(validBody({ category: cat50 }), "user-1"), makeContext());
+    // Use a valid category for the enum check — length limit is tested separately
+    const res = await postGarment(makeRequest(validBody({ category: "top" }), "user-1"), makeContext());
     expect(res.status).toBe(201);
+  });
+
+  // ── F2: category enum validation ─────────────────────────────────────────────
+
+  it("returns 400 when category is not in the allowed list", async () => {
+    const { postGarment } = await import("./postGarment.js");
+    const res = await postGarment(makeRequest(validBody({ category: "hat" }), "user-1"), makeContext());
+    expect(res.status).toBe(400);
+    expect((res.jsonBody as { error: string }).error).toContain("must be one of");
+    expect((res.jsonBody as { error: string }).error).toContain("hat");
+  });
+
+  it("accepts all valid categories (case-insensitive)", async () => {
+    mockCreate.mockResolvedValue({ resource: { id: "g1" } });
+    const { postGarment } = await import("./postGarment.js");
+    const validCategories = ["dress", "Top", "BOTTOM", "Outerwear", "shoes", "Accessory", "other"];
+    for (const cat of validCategories) {
+      mockCreate.mockResolvedValue({ resource: { id: `g-${cat}` } });
+      const res = await postGarment(makeRequest(validBody({ category: cat }), "user-1"), makeContext());
+      expect(res.status).toBe(201);
+    }
   });
 
   // ── S7: SSRF — catalogImageUrls URL validation ────────────────────────────

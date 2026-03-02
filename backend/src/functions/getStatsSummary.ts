@@ -5,7 +5,7 @@ import {
   InvocationContext,
 } from "@azure/functions";
 import { listGarments } from "../services/garmentService.js";
-import { listWearEvents } from "../services/wearEventService.js";
+import { getWearEventAggregations } from "../services/wearEventService.js";
 import {
   extractUserId,
   unauthorizedResponse,
@@ -15,7 +15,10 @@ import {
  * GET /api/stats/summary
  *
  * Returns aggregated wear statistics for the authenticated user's wardrobe.
- * Uses the `x-ms-client-principal-id` header (Issue #13) for authentication.
+ * Uses the `x-ms-client-principal` header (Issue #13) for authentication.
+ *
+ * F4: Uses a Cosmos DB GROUP BY aggregation query to compute per-garment
+ * wear statistics server-side rather than fetching every individual wear event.
  *
  * Response shape:
  * {
@@ -29,8 +32,7 @@ import {
  * }
  *
  * Returns HTTP 200 with the summary object.
- * Returns HTTP 400 if userId is missing.
- * Returns HTTP 401 when REQUIRE_AUTH is enabled and no auth header is present.
+ * Returns HTTP 401 when no valid auth header is present.
  */
 export async function getStatsSummary(
   request: HttpRequest,
@@ -43,18 +45,20 @@ export async function getStatsSummary(
   }
 
   try {
-    const [garments, wearEvents] = await Promise.all([
+    const [garments, wearAggregations] = await Promise.all([
       listGarments(userId),
-      listWearEvents(userId),
+      getWearEventAggregations(userId),
     ]);
 
-    // Build a map of garmentId → last worn date from wear events
-    const lastWornMap = new Map<string, string>();
-    for (const evt of wearEvents) {
-      const existing = lastWornMap.get(evt.garmentId);
-      if (!existing || evt.createdAt > existing) {
-        lastWornMap.set(evt.garmentId, evt.createdAt);
-      }
+    // Build a map of garmentId → { lastWornDate, eventCount } from aggregations (F4)
+    const aggMap = new Map<string, { lastWornDate: string; eventCount: number }>();
+    let totalWearEvents = 0;
+    for (const agg of wearAggregations) {
+      aggMap.set(agg.garmentId, {
+        lastWornDate: agg.lastWornDate,
+        eventCount: agg.eventCount,
+      });
+      totalWearEvents += agg.eventCount;
     }
 
     // Build per-garment summary
@@ -63,7 +67,7 @@ export async function getStatsSummary(
       name: g.name,
       category: g.category,
       wearCount: g.wearCount,
-      lastWornDate: lastWornMap.get(g.id) ?? null,
+      lastWornDate: aggMap.get(g.id)?.lastWornDate ?? null,
     }));
 
     // Determine most-worn and least-worn
@@ -83,13 +87,13 @@ export async function getStatsSummary(
         .map((g) => ({ garmentId: g.id, name: g.name, wearCount: g.wearCount }));
     }
 
-    context.log(`Stats summary for user ${userId}: ${garments.length} garments, ${wearEvents.length} wear events`);
+    context.log(`Stats summary for user ${userId}: ${garments.length} garments, ${totalWearEvents} wear events`);
 
     return {
       status: 200,
       jsonBody: {
         totalGarments: garments.length,
-        totalWearEvents: wearEvents.length,
+        totalWearEvents,
         garments: garmentStats,
         mostWorn,
         leastWorn,

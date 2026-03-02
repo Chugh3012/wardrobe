@@ -111,4 +111,34 @@ describe("wearEventService", () => {
       parameters: [{ name: "@userId", value: "user-1" }],
     });
   });
+
+  // ── getWearEventAggregations (F4) ──────────────────────────────────────────
+
+  it("getWearEventAggregations returns per-garment aggregations", async () => {
+    const aggregations = [
+      { garmentId: "g1", eventCount: 3, lastWornDate: "2026-02-15T00:00:00.000Z" },
+      { garmentId: "g2", eventCount: 1, lastWornDate: "2026-01-10T00:00:00.000Z" },
+    ];
+    mockFetchAll.mockResolvedValue({ resources: aggregations });
+
+    const { getWearEventAggregations } = await import("./wearEventService.js");
+    const result = await getWearEventAggregations("user-1");
+
+    expect(result).toEqual(aggregations);
+    expect(mockQuery).toHaveBeenCalledWith({
+      query:
+        "SELECT c.garmentId, COUNT(1) AS eventCount, MAX(c.createdAt) AS lastWornDate " +
+        "FROM c WHERE c.userId = @userId GROUP BY c.garmentId",
+      parameters: [{ name: "@userId", value: "user-1" }],
+    });
+  });
+
+  it("getWearEventAggregations returns empty array when no events exist", async () => {
+    mockFetchAll.mockResolvedValue({ resources: [] });
+
+    const { getWearEventAggregations } = await import("./wearEventService.js");
+    const result = await getWearEventAggregations("user-1");
+
+    expect(result).toEqual([]);
+  });
 });

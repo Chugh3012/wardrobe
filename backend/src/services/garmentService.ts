@@ -65,7 +65,8 @@ export async function incrementWearCount(id: string, userId: string): Promise<Ga
 }
 
 /**
- * Lists all garments for a given userId.
+ * Lists all garments for a given userId (unpaginated).
+ * Used internally by endpoints that need the full set (e.g. stats, predict).
  */
 export async function listGarments(userId: string): Promise<Garment[]> {
   const { resources } = await getContainer().items
@@ -75,4 +76,51 @@ export async function listGarments(userId: string): Promise<Garment[]> {
     })
     .fetchAll();
   return resources;
+}
+
+/** Default page size for paginated garment queries (F3). */
+const DEFAULT_PAGE_SIZE = 20;
+/** Maximum allowed page size. */
+const MAX_PAGE_SIZE = 100;
+
+/** Result shape for paginated garment listing. */
+export interface PaginatedGarments {
+  garments: Garment[];
+  continuationToken: string | undefined;
+}
+
+/**
+ * Lists garments for a given userId with pagination (F3).
+ *
+ * @param userId          - The authenticated user's ID (partition key).
+ * @param pageSize        - Number of items per page (default 20, max 100).
+ * @param continuationToken - Cosmos DB continuation token for the next page.
+ */
+export async function listGarmentsPaginated(
+  userId: string,
+  pageSize?: number,
+  continuationToken?: string,
+): Promise<PaginatedGarments> {
+  const effectivePageSize = Math.min(
+    Math.max(pageSize ?? DEFAULT_PAGE_SIZE, 1),
+    MAX_PAGE_SIZE,
+  );
+
+  const iterator = getContainer().items.query<Garment>(
+    {
+      query: "SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC",
+      parameters: [{ name: "@userId", value: userId }],
+    },
+    {
+      maxItemCount: effectivePageSize,
+      continuationToken: continuationToken || undefined,
+    },
+  );
+
+  const response = await iterator.fetchNext();
+
+  return {
+    garments: response.resources ?? [],
+    continuationToken: response.continuationToken ?? undefined,
+  };
 }
