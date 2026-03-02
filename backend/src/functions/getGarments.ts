@@ -7,7 +7,6 @@ import {
 import { listGarments } from "../services/garmentService.js";
 import {
   extractUserId,
-  isAuthRequired,
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
 
@@ -29,16 +28,10 @@ export async function getGarments(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  const userId = extractUserId(request, {
-    userId: request.query.get("userId") ?? undefined,
-  });
+  const userId = extractUserId(request);
 
   if (!userId) {
-    if (isAuthRequired()) return unauthorizedResponse();
-    return {
-      status: 400,
-      jsonBody: { error: "'userId' query parameter is required." },
-    };
+    return unauthorizedResponse();
   }
 
   try {

@@ -10,7 +10,6 @@ import { predictGarments } from "../services/predictionService.js";
 import { getConfidenceLevel } from "../services/configService.js";
 import {
   extractUserId,
-  isAuthRequired,
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
 
@@ -52,14 +51,10 @@ export async function postWearPredict(
   }
 
   // ── Authenticate ──────────────────────────────────────────────────────────
-  const userId = extractUserId(request, body as Record<string, unknown>);
+  const userId = extractUserId(request);
 
   if (!userId) {
-    if (isAuthRequired()) return unauthorizedResponse();
-    return {
-      status: 400,
-      jsonBody: { error: "'userId' is required." },
-    };
+    return unauthorizedResponse();
   }
 
   // ── Validate required fields ──────────────────────────────────────────────

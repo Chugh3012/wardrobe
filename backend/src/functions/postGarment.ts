@@ -9,7 +9,6 @@ import { submitTrainingImages } from "../services/customVisionService.js";
 import { computeEmbedding } from "../services/embeddingService.js";
 import {
   extractUserId,
-  isAuthRequired,
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
 
@@ -61,14 +60,10 @@ export async function postGarment(
   }
 
   // ── Authenticate ───────────────────────────────────────────────────────────
-  const userId = extractUserId(request, body as Record<string, unknown>);
+  const userId = extractUserId(request);
 
   if (!userId) {
-    if (isAuthRequired()) return unauthorizedResponse();
-    return {
-      status: 400,
-      jsonBody: { error: "'userId' is required." },
-    };
+    return unauthorizedResponse();
   }
 
   // ── Validate required fields ───────────────────────────────────────────────
