@@ -71,7 +71,6 @@ export default function DailyUpload() {
             <input
               type="file"
               accept="image/*"
-              capture="environment"
               className={styles.hiddenInput}
               aria-label="Take or select outfit photo"
               onChange={handleFileChange}
