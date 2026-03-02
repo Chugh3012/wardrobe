@@ -88,12 +88,19 @@ async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
     try {
-      const body = await res.json();
-      if (body?.error) message = body.error;
+      const ct = res.headers.get('content-type') ?? '';
+      if (ct.includes('application/json')) {
+        const body = await res.json();
+        if (body?.error) message = body.error;
+      }
     } catch {
       // body wasn't JSON — keep default message
     }
     throw new Error(message);
+  }
+  const contentType = res.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/json')) {
+    throw new Error('Unexpected response format from API.');
   }
   return res.json() as Promise<T>;
 }

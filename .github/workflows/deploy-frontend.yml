@@ -7,12 +7,14 @@ on:
       - main
     paths:
       - 'frontend/**'
+      - 'backend/**'
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
       - main
     paths:
       - 'frontend/**'
+      - 'backend/**'
 
 jobs:
   build_and_deploy:
@@ -49,6 +51,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: 'upload'
           app_location: 'frontend/dist'
+          api_location: 'backend'
           output_location: ''
           skip_app_build: true
 
