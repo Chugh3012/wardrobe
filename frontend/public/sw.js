@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wardrobe-v1';
+const CACHE_NAME = 'wardrobe-v2';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
@@ -24,20 +24,26 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests for same-origin navigation
+  // Only handle GET requests for same-origin
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
 
-  // For navigation requests, serve the app shell (index.html)
+  // Never intercept auth endpoints or API calls
+  if (url.pathname.startsWith('/.auth/') || url.pathname.startsWith('/api/')) return;
+
+  // For navigation requests, use network-first strategy.
+  // The app shell loads fast and the React auth check needs fresh /.auth/me state.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.match('/index.html').then((cached) => cached || fetch(event.request))
+      fetch(event.request).catch(() =>
+        caches.match('/index.html').then((cached) => cached || fetch(event.request))
+      )
     );
     return;
   }
 
-  // Cache-first for shell assets, network-first for API calls
+  // Cache-first for shell assets (icons, manifest)
   if (SHELL_ASSETS.includes(url.pathname)) {
     event.respondWith(
       caches.match(event.request).then((cached) => cached || fetch(event.request))

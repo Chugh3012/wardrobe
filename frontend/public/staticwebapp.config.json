@@ -27,7 +27,7 @@
       "statusCode": 404
     },
     {
-      "route": "/*",
+      "route": "/api/*",
       "allowedRoles": ["authenticated"]
     }
   ],
@@ -39,7 +39,7 @@
   },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/api/*", "/icons/*", "/manifest.json", "/sw.js", "/*.png", "/*.svg"]
+    "exclude": ["/api/*"]
   },
   "globalHeaders": {
     "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.blob.core.windows.net; connect-src 'self' https://*.blob.core.windows.net https://*.azurewebsites.net https://dc.services.visualstudio.com https://*.in.applicationinsights.azure.com;",

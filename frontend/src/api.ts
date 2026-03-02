@@ -81,6 +81,26 @@ export interface CreatedGarment {
   updatedAt: string;
 }
 
+// ── Auth ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Check if the current user is authenticated via SWA EasyAuth.
+ * Calls `/.auth/me` — returns `true` if a valid principal exists.
+ * In local dev (Vite without SWA), this endpoint won't exist — treat as authenticated.
+ */
+export async function checkAuth(): Promise<boolean> {
+  try {
+    const res = await fetch('/.auth/me');
+    if (!res.ok) return false;
+    const data = await res.json();
+    // SWA returns { clientPrincipal: { ... } | null }
+    return data?.clientPrincipal != null;
+  } catch {
+    // Fetch failed (e.g. local dev without SWA proxy) — allow through
+    return true;
+  }
+}
+
 // ── Helper ───────────────────────────────────────────────────────────────────
 
 async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {

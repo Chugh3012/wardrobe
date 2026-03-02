@@ -22,5 +22,9 @@ Thumbs.db
 # Vite
 *.local
 
+# Playwright / E2E test artifacts
+test-results/
+playwright-report/
+
 # Bicep ARM template build artifacts
 infra/*.json

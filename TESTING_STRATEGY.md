@@ -21,9 +21,10 @@ Every feature in this project must be verifiable from a real phone browser (or i
 ### 2.1 Unit Tests
 
 - **Scope:** Individual functions, utilities, data model validation, and business logic (e.g., confidence threshold checks, wear count increment logic).
-- **Tools:** [Jest](https://jestjs.io/) for TypeScript/JavaScript backend (Azure Functions) and frontend code.
+- **Tools:** [Vitest](https://vitest.dev/) for TypeScript/JavaScript backend (Azure Functions) and frontend code.
 - **Run:** Locally via `npm test` and in CI via GitHub Actions on every pull request.
 - **Convention:** Test files are co-located with source files using the `*.test.ts` / `*.test.js` naming pattern.
+- **Current count:** 192 tests across 18 files (backend).
 
 ### 2.2 Integration Tests
 
@@ -34,10 +35,15 @@ Every feature in this project must be verifiable from a real phone browser (or i
 
 ### 2.3 End-to-End (E2E) / Phone Tests
 
-- **Scope:** Full user flows executed from a phone browser — garment creation, daily upload, prediction, confirmation, and dashboard viewing.
-- **Tools:** Manual execution using the **Phone-Test Checklist Template** below. Optionally supplemented with [Playwright](https://playwright.dev/) running in mobile emulation mode (use `iPhone 14` or `iPhone 15` device profile as primary) for automated regression in CI.
-- **Run:** Manually on a real iOS device (iPhone + Safari) for milestone validations; Playwright mobile emulation in CI for regression.
-- **iOS priority:** Real-device manual testing must be done on iOS Safari first. Playwright CI emulation should use the `iPhone 14` / `iPhone 15` WebKit profile.
+- **Scope:** Full user flows executed from a phone browser — garment creation, daily upload, prediction, confirmation, and dashboard viewing. Also: Azure resource verification, API endpoint smoke tests, SWA auth/header enforcement, and UI page rendering.
+- **Tools:** [Playwright](https://playwright.dev/) with 4 test projects:
+  - `azure-resources` — Verifies Azure resources exist (SWA, Functions, Cosmos DB, Blob Storage, Key Vault, AI services, App Insights, Budget). 33 tests.
+  - `api-endpoints` — Smoke tests for all 6 API endpoints against the live Function App. 30 tests (some skip when run from non-Azure IPs due to `ipSecurityRestrictions`).
+  - `ui-desktop` — Desktop Chrome viewport. Tests SWA auth enforcement, security headers, PWA manifest, asset loading, page rendering (Dashboard, Catalog, AddGarment, DailyUpload), navigation, SPA fallback, meta tags. 26 tests.
+  - `ui-mobile` — iPhone 14 emulation. Same test suite as `ui-desktop` but verifies mobile layout, viewport, and touch-friendly nav. 26 tests.
+- **Architecture:** UI tests use Pattern A mocking — `/.auth/me` is mocked to return a valid `clientPrincipal`, and API calls are intercepted via Playwright route mocking against a local Vite preview server. SWA-specific tests (auth, headers, assets) hit the live SWA URL.
+- **Run:** Locally via `cd e2e && npx playwright test` (requires `SWA_URL` and `FUNC_URL` env vars for live tests). In CI after deployment.
+- **Config:** `e2e/playwright.config.ts` — `serviceWorkers: 'block'` on UI projects to ensure reliable route mocking.
 
 ### 2.4 API Smoke Tests (from Mobile Browser)
 
@@ -50,7 +56,7 @@ Every feature in this project must be verifiable from a real phone browser (or i
 - **Scope:** Confirm the app is installable as a Progressive Web App on phone home screens.
 - **How:** Open the deployed URL in Safari (iOS — primary) or Chrome (Android), trigger "Add to Home Screen", and verify the app launches in standalone mode.
 - **Checklist items:** `manifest.json` loads without errors, service worker registers, offline shell loads, app icon appears on home screen.
-- **iOS-specific checks:** Verify `apple-touch-icon` meta tags, `apple-mobile-web-app-capable` meta tag, status bar styling, and that the app opens in standalone mode (not a Safari tab).
+- **iOS-specific checks:** Verify `apple-touch-icon` meta tags, `mobile-web-app-capable` meta tag, status bar styling, and that the app opens in standalone mode (not a Safari tab).
 
 ### 2.6 Security Tests
 
@@ -84,10 +90,10 @@ Every feature in this project must be verifiable from a real phone browser (or i
 |-------|------|---------|
 | Unit | Vitest | Backend & frontend unit tests (incl. security tests) |
 | Integration | Supertest / HTTP client | API endpoint & service integration |
-| E2E (Automated) | Playwright (mobile emulation) | Automated regression in CI |
+| E2E (Automated) | Playwright (4 projects) | Azure resources, API endpoints, UI desktop/mobile |
 | E2E (Manual) | Phone browser + checklist | Milestone phone-test validation |
-| API Smoke | Phone browser / in-app test page | Verify endpoints are reachable |
-| PWA | Phone browser | Verify install & standalone mode |
+| API Smoke | Playwright `api-endpoints` project | Verify endpoints are reachable |
+| PWA | Phone browser + Playwright | Verify install & standalone mode |
 | Debugging | Safari Web Inspector (primary) / Chrome Remote Debug | Inspect phone browser remotely |
 | Observability | Application Insights (Azure Portal) | Verify telemetry after phone actions |
 
@@ -141,8 +147,24 @@ For diagnosing issues during phone testing:
 ## 5) CI/CD Integration
 
 - **GitHub Actions** runs unit and integration tests on every pull request targeting `main`.
-- Playwright mobile-emulation E2E tests run on staging deployments after merge to `main`.
+- Playwright E2E tests run post-deployment against the live SWA and Functions URLs.
 - Phone-test checklists are completed manually for milestone validations (e.g., Issue #15 end-to-end flow).
+
+### E2E Test Setup
+
+```bash
+# Install Playwright browsers (one-time)
+cd e2e && npx playwright install
+
+# Run all E2E tests
+SWA_URL=https://<swa-hostname> FUNC_URL=https://<func-hostname> npx playwright test
+
+# Run only UI tests (desktop)
+npx playwright test --project=ui-desktop
+
+# Run only Azure resource tests
+npx playwright test --project=azure-resources
+```
 
 ### Suggested GitHub Actions Workflow
 
@@ -162,10 +184,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci
-      - run: npm test
+      - run: cd backend && npm ci && npm test
 
-  integration-tests:
+  e2e-tests:
     runs-on: ubuntu-latest
     needs: unit-tests
     steps:
@@ -173,8 +194,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci
-      - run: npm run test:integration
+      - run: cd e2e && npm ci && npx playwright install --with-deps
+      - run: cd frontend && npm ci && npm run build
+      - run: cd e2e && npx playwright test --project=ui-desktop --project=ui-mobile
+        env:
+          SWA_URL: ${{ vars.SWA_URL }}
+          FUNC_URL: ${{ vars.FUNC_URL }}
 ```
 
 ---
