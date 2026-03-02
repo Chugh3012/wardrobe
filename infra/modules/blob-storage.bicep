@@ -26,6 +26,12 @@ param containerName string
 @description('Object (principal) ID of the Function App Managed Identity.')
 param functionAppPrincipalId string
 
+@description('Default hostname of the Static Web App (used for CORS on direct blob uploads).')
+param staticWebAppHostname string
+
+@description('Include http://localhost:5173 CORS origin (dev only, S11).')
+param includeCorsLocalhost bool = false
+
 // ── Storage Account ───────────────────────────────────────────────────────────
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -52,6 +58,20 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01'
     deleteRetentionPolicy: {
       enabled: true
       days: 7
+    }
+    cors: {
+      corsRules: [
+        {
+          allowedOrigins: union(
+            [ 'https://${staticWebAppHostname}' ]
+            includeCorsLocalhost ? [ 'http://localhost:5173' ] : []
+          )
+          allowedMethods: [ 'PUT', 'GET', 'HEAD', 'OPTIONS' ]
+          allowedHeaders: [ '*' ]
+          exposedHeaders: [ '*' ]
+          maxAgeInSeconds: 3600
+        }
+      ]
     }
   }
 }
