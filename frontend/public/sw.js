@@ -29,11 +29,11 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // Never intercept auth endpoints or API calls
-  if (url.pathname.startsWith('/.auth/') || url.pathname.startsWith('/api/')) return;
+  // Never intercept auth endpoints
+  if (url.pathname.startsWith('/.auth/')) return;
 
   // For navigation requests, use network-first strategy.
-  // The app shell loads fast and the React auth check needs fresh /.auth/me state.
+  // The app shell loads fast and MSAL needs the page to fully load for redirect handling.
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() =>

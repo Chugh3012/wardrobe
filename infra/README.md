@@ -11,6 +11,8 @@ The GitHub Actions workflow `provision-infra.yml` runs these templates automatic
 | Concern | Approach |
 |---|---|
 | GitHub → Azure auth | **OIDC Workload Identity Federation** — no long-lived client secret ever stored |
+| User → Frontend auth | **MSAL (`@azure/msal-browser`)** — acquires AAD Bearer tokens via redirect flow |
+| Frontend → Function App auth | **EasyAuth v2** on Function App validates Bearer tokens (audience, issuer, signature) |
 | Service-to-service auth | Managed Identity (added per-resource as issues #2–#13 are implemented) |
 | Secrets at runtime | Azure Key Vault — referenced via `getSecret()` in Bicep modules |
 | RBAC scope | `Owner` scoped to `rg-wardrobe-<env>` only (needed for RBAC assignments) |
@@ -126,13 +128,14 @@ This requires a PAT with `secrets: write` on this repository.
 gh secret set ACTIONS_TOKEN --repo Chugh3012/wardrobe --body "<your-pat>"
 ```
 
-### 6. Configure SWA EasyAuth — Entra ID user authentication (Issue #13.7)
+### 6. Configure Entra ID app registration for user authentication (Issues #13.7, #15.6)
 
 This creates a **separate** Entra app from the CI SP above. This app handles
-end-user sign-in via SWA EasyAuth (Azure AD provider).
+end-user sign-in via MSAL in the frontend. The Function App EasyAuth v2
+validates the Bearer tokens issued by this app.
 
 ```bash
-# 1. Create the app registration (single-tenant, SWA callback redirect)
+# 1. Create the app registration (single-tenant)
 SWA_HOSTNAME=$(az staticwebapp show -n swa-wardrobe-dev -g rg-wardrobe-dev --query defaultHostname -o tsv)
 
 az ad app create \
@@ -143,23 +146,43 @@ az ad app create \
 SWA_AUTH_APP_ID=$(az ad app list --display-name "wardrobe-swa-auth" --query "[0].appId" -o tsv)
 SWA_AUTH_OBJECT_ID=$(az ad app list --display-name "wardrobe-swa-auth" --query "[0].id" -o tsv)
 
-# 2. Enable id_token implicit grant (required by SWA EasyAuth)
+# 2. Add SPA redirect URIs (for MSAL browser-based auth)
+az rest --method PATCH \
+  --uri "https://graph.microsoft.com/v1.0/applications/$SWA_AUTH_OBJECT_ID" \
+  --headers "Content-Type=application/json" \
+  --body "{\"spa\":{\"redirectUris\":[\"https://$SWA_HOSTNAME\",\"http://localhost:5173\"]}}"
+
+# 3. Enable id_token implicit grant (for SWA EasyAuth fallback)
 az rest --method PATCH \
   --uri "https://graph.microsoft.com/v1.0/applications/$SWA_AUTH_OBJECT_ID" \
   --headers "Content-Type=application/json" \
   --body '{"web":{"implicitGrantSettings":{"enableIdTokenIssuance":true,"enableAccessTokenIssuance":false}}}'
 
-# 3. Set the AAD_CLIENT_ID app setting on SWA
+# 4. Set identifier URI and create access_as_user API scope
+az ad app update --id "$SWA_AUTH_APP_ID" \
+  --identifier-uris "api://$SWA_AUTH_APP_ID"
+
+az rest --method PATCH \
+  --uri "https://graph.microsoft.com/v1.0/applications/$SWA_AUTH_OBJECT_ID" \
+  --headers "Content-Type=application/json" \
+  --body "{\"api\":{\"oauth2PermissionScopes\":[{\"adminConsentDescription\":\"Access Wardrobe API on behalf of the user\",\"adminConsentDisplayName\":\"Access as user\",\"id\":\"$(uuidgen)\",\"isEnabled\":true,\"type\":\"User\",\"value\":\"access_as_user\",\"userConsentDescription\":\"Access Wardrobe API on your behalf\",\"userConsentDisplayName\":\"Access as user\"}]}}"
+
+# 5. Set the AAD_CLIENT_ID app setting on SWA (for /.auth/login/aad fallback)
 az staticwebapp appsettings set \
   -n swa-wardrobe-dev -g rg-wardrobe-dev \
   --setting-names "AAD_CLIENT_ID=$SWA_AUTH_APP_ID"
 
-# 4. Update frontend/public/staticwebapp.config.json:
-#    Replace {TENANT_ID} with your real tenant ID in the openIdIssuer URL.
-#    The clientIdSettingName "AAD_CLIENT_ID" references the app setting above.
+# 6. Deploy Bicep to enable Function App EasyAuth v2
+#    (aadClientId and aadTenantId params in main.bicep)
 TENANT_ID=$(az account show --query tenantId -o tsv)
-echo "Replace {TENANT_ID} in staticwebapp.config.json with: $TENANT_ID"
+echo "Ensure main.bicep params: aadClientId=$SWA_AUTH_APP_ID, aadTenantId=$TENANT_ID"
 ```
+
+> **Architecture (Issue #15.6):** The frontend uses MSAL to acquire AAD Bearer tokens
+> and sends them directly to `func-wardrobe-dev.azurewebsites.net`. The Function App's
+> EasyAuth v2 (`authsettingsV2` in `functions.bicep`) validates each token. SWA no longer
+> proxies API requests — there are no managed functions. The SWA auth provider config
+> is retained as a convenience for `/.auth/login/aad` and `/.auth/logout` routes.
 
 > **Note:** Only users in your Entra tenant can sign in (single-tenant). To
 > invite external users, add them as guests: `az ad invitation create --invited-user-email-address <email>`.

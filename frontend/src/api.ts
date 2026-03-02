@@ -1,13 +1,17 @@
 /**
  * API client — typed wrappers around the backend REST endpoints.
  *
- * All requests go through the SWA reverse proxy (`/api/*`), so no
- * explicit backend URL is needed. SWA EasyAuth automatically attaches
- * the `x-ms-client-principal` header for authenticated users.
+ * All requests go directly to the standalone Azure Function App.
+ * MSAL acquires an AAD Bearer token which is attached to every request.
+ * The Function App's EasyAuth v2 validates the token and injects
+ * `x-ms-client-principal` for the backend code.
  *
  * Every function throws on non-2xx responses with a structured error
  * message extracted from the JSON body when available.
  */
+
+import { InteractionRequiredAuthError } from '@azure/msal-browser';
+import { msalInstance, apiScopes, apiBaseUrl } from './msalConfig';
 
 // ── Shared types ─────────────────────────────────────────────────────────────
 
@@ -84,27 +88,44 @@ export interface CreatedGarment {
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
 /**
- * Check if the current user is authenticated via SWA EasyAuth.
- * Calls `/.auth/me` — returns `true` if a valid principal exists.
- * In local dev (Vite without SWA), this endpoint won't exist — treat as authenticated.
+ * Acquire an AAD access token silently (from cache/refresh).
+ * Falls back to an interactive redirect when silent acquisition fails.
+ * Returns the raw Bearer token string.
  */
-export async function checkAuth(): Promise<boolean> {
+async function getAccessToken(): Promise<string> {
+  const accounts = msalInstance.getAllAccounts();
+  if (accounts.length === 0) {
+    // No cached accounts — trigger interactive login
+    await msalInstance.loginRedirect({ scopes: apiScopes });
+    // loginRedirect navigates away; this line is only reached if something
+    // goes wrong — throw to surface the issue.
+    throw new Error('Redirecting to login…');
+  }
+
   try {
-    const res = await fetch('/.auth/me');
-    if (!res.ok) return false;
-    const data = await res.json();
-    // SWA returns { clientPrincipal: { ... } | null }
-    return data?.clientPrincipal != null;
-  } catch {
-    // Fetch failed (e.g. local dev without SWA proxy) — allow through
-    return true;
+    const result = await msalInstance.acquireTokenSilent({
+      scopes: apiScopes,
+      account: accounts[0],
+    });
+    return result.accessToken;
+  } catch (err) {
+    if (err instanceof InteractionRequiredAuthError) {
+      await msalInstance.acquireTokenRedirect({ scopes: apiScopes });
+      throw new Error('Redirecting to acquire token…');
+    }
+    throw err;
   }
 }
 
 // ── Helper ───────────────────────────────────────────────────────────────────
 
-async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = await getAccessToken();
+  const url = `${apiBaseUrl}${path}`;
+  const headers = new Headers(init?.headers);
+  headers.set('Authorization', `Bearer ${token}`);
+
+  const res = await fetch(url, { ...init, headers });
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
     try {

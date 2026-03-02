@@ -517,12 +517,12 @@ A follow-up security audit after Issue #13.5 revealed additional infrastructure-
 
 ---
 
-#### SEC-P1: Function App Network Access Restrictions
+#### SEC-P1: Function App Authentication (EasyAuth v2)
 
 The Function App was publicly accessible at its `.azurewebsites.net` URL, allowing anyone to bypass SWA authentication and spoof the `x-ms-client-principal-id` header.
 
-- **Fix:** Added `ipSecurityRestrictions` in `infra/modules/functions.bicep` to allow only `AzureCloud` service-tag traffic and deny all other inbound requests. SCM site uses the same restrictions (`scmIpSecurityRestrictionsUseMain: true`).
-- **Limitation:** SWA Free tier does not support linked backends. For full isolation, upgrade to SWA Standard and use a linked/managed backend. This is documented as an accepted limitation.
+- **Original Fix (Issue #13.6):** Added `ipSecurityRestrictions` in `functions.bicep` to allow only `AzureCloud` service-tag traffic.
+- **Updated Fix (Issue #15.6):** Replaced IP restrictions with **EasyAuth v2** (`authsettingsV2` in `functions.bicep`). EasyAuth validates AAD Bearer tokens (signature, audience `api://<clientId>`, issuer `login.microsoftonline.com/<tenantId>/v2.0`). Unauthenticated requests receive HTTP 401. This is strictly more secure than IP restrictions because it validates cryptographic token proofs rather than source IP ranges. The AzureCloud service-tag allowed *any* Azure resource to call the API — EasyAuth ensures only users with valid tokens from the specific tenant and app registration can access. IP restrictions were removed to allow MSAL-based browser requests to reach the Function App directly.
 
 #### SEC-P2: Downscope Service Principal to Resource Group
 
@@ -560,7 +560,7 @@ The SAS URL endpoint generated upload tokens without content-type restrictions, 
 
 | # | Area | Remediation | Status |
 |---|------|-------------|--------|
-| SEC-P1 | Infra | Function App `ipSecurityRestrictions` (AzureCloud only) | ✅ |
+| SEC-P1 | Infra | Function App EasyAuth v2 (replaced IP restrictions) | ✅ Updated in #15.6 |
 | SEC-P2 | Infra | SP downscoped to RG (documented in `infra/README.md`) | ✅ |
 | SEC-P3 | Infra | Monthly budget alert ($5, 3 tiers) | ✅ |
 | SEC-P4 | Infra | Key Vault references for AI keys in app settings | ✅ |
@@ -722,11 +722,11 @@ After evaluating three architectural patterns, **Pattern A** was chosen as the c
 8. **`.gitignore`** — Added `test-results/` and `playwright-report/` to prevent E2E artifacts from being committed.
 
 **Security Audit:**
-- No security guardrails from #13/#13.5/#13.6/#13.7 were weakened.
-- All API endpoints remain triple-protected: SWA `/api/*` route rule + `REQUIRE_AUTH=true` + base64 `x-ms-client-principal` validation.
-- Function App IP restrictions unchanged.
+- All API endpoints remain protected by Function App EasyAuth v2 (AAD token validation) + `REQUIRE_AUTH=true` + base64 `x-ms-client-principal` validation.
+- SEC-P1 (Function App access restrictions) was **upgraded**: IP-based restrictions replaced by EasyAuth v2 in Issue #15.6 — a net security improvement.
+- All other security guardrails from #13/#13.5/#13.6/#13.7 are unchanged.
 - All security headers (CSP, HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy) unchanged.
-- The SPA shell is intentionally public (contains no data — only the React bundle). All data access is gated by authenticated `/api/*` calls.
+- The SPA shell is intentionally public (contains no data — only the React bundle). All data access is gated by authenticated API calls.
 
 **Acceptance Criteria:**
 - [x] SWA serves the app shell (HTML/JS/CSS) without requiring authentication (HTTP 200 for `GET /`).
@@ -741,6 +741,85 @@ After evaluating three architectural patterns, **Pattern A** was chosen as the c
 
 **Phone-Test Validation:**
 > Open the SWA URL in a phone browser (incognito). Verify: (1) the page loads without console errors, (2) you are redirected to Entra login, (3) after sign-in the Dashboard loads with real data, (4) CSS/JS assets load with correct MIME types, (5) no `apple-mobile-web-app-capable` deprecation warning.
+
+---
+
+### Issue #15.6: MSAL + Function App EasyAuth v2 Architecture (Fix 500 on Managed Functions)
+
+- [x] **Status:** Done
+
+**Description:**
+After PR #32 (Issue #15.5) was merged and deployed, the `/api/stats/summary` endpoint returned HTTP 500. Investigation revealed that `deploy-frontend.yml` had `api_location: 'backend'`, which deployed the backend code as **SWA managed functions** — a separate runtime copy from the standalone `func-wardrobe-dev`. These managed functions lacked:
+
+- All required app settings (`COSMOS_DB_ENDPOINT`, `COSMOS_DB_DATABASE_NAME`, `REQUIRE_AUTH`, etc.) — only `AAD_CLIENT_ID` was set.
+- Managed identity (SWA Free tier limitation) — cannot use `DefaultAzureCredential` for Cosmos DB.
+- Key Vault reference support (SWA Free tier limitation) — `@Microsoft.KeyVault(...)` references fail.
+
+The standalone Function App (`func-wardrobe-dev.azurewebsites.net`) was never called — all requests were routed to the broken managed functions copy.
+
+**Root Cause:** SWA Free-tier managed functions do not support managed identity, Key Vault references, or external configuration — they are a separate, limited runtime from the standalone Function App.
+
+**Solution Evaluated (3 options):**
+- **Option A:** Fix managed functions — add app settings, enable Cosmos local auth (`disableLocalAuth: false`). Rejected: weakens S6 security guardrail, still no managed identity.
+- **Option B (chosen):** Remove managed functions entirely. Frontend calls `func-wardrobe-dev` directly with MSAL Bearer tokens. Function App EasyAuth v2 validates tokens. Most secure + free.
+- **Option C:** Upgrade SWA to Standard ($9/month) — supports linked backends with managed identity. Rejected: costs money.
+
+**Changes Made:**
+
+1. **`infra/modules/functions.bicep`** — Removed `ipSecurityRestrictions` (SEC-P1 originally). Added EasyAuth v2 via `Microsoft.Web/sites/config@2023-12-01` (`authsettingsV2`): validates AAD tokens with audience `api://<clientId>` and issuer `login.microsoftonline.com/<tenantId>/v2.0`, `unauthenticatedClientAction: 'Return401'`. Added `aadTenantId` and `aadClientId` parameters. Updated CORS to `supportCredentials: true` for cross-origin Bearer tokens.
+
+2. **`infra/main.bicep`** — Added `aadTenantId` and `aadClientId` parameters (with defaults), passed to functions module.
+
+3. **`.github/workflows/deploy-frontend.yml`** — Removed `api_location: 'backend'` (no more managed functions). Removed `backend/**` from push/PR trigger paths. Frontend-only deployment.
+
+4. **`frontend/src/msalConfig.ts`** (new) — MSAL configuration: `PublicClientApplication` singleton, `apiScopes` (`api://<clientId>/access_as_user`), `apiBaseUrl` (env-configurable).
+
+5. **`frontend/src/api.ts`** — Replaced `checkAuth()` with `getAccessToken()` using MSAL silent/redirect flow. `apiFetch()` now calls `func-wardrobe-dev.azurewebsites.net/api/*` directly with `Authorization: Bearer <token>` header. Removed SWA proxy dependency.
+
+6. **`frontend/src/App.tsx`** — Replaced SWA EasyAuth check (`/.auth/me`) with MSAL flow: `initialize()` → `handleRedirectPromise()` → `loginRedirect()`. Added dedicated error screen with retry button instead of falling through to unauthenticated state.
+
+7. **`frontend/public/staticwebapp.config.json`** — Removed `/api/*` route rule (no more SWA API proxy). Removed `/api/*` from `navigationFallback.exclude`. Added `login.microsoftonline.com` to CSP `connect-src` and `frame-src` for MSAL token requests and iframe-based silent renewal.
+
+8. **`frontend/public/sw.js`** — Removed `/api/` path bypass (no longer needed — API calls go to a different origin). Updated comments for MSAL redirect handling.
+
+9. **`frontend/package.json`** — Added `@azure/msal-browser` dependency.
+
+**Entra ID App Registration Updates:**
+- Added SPA redirect URIs: `https://black-bay-06582c003.1.azurestaticapps.net`, `http://localhost:5173`
+- Added identifier URI: `api://51fbad72-f951-47c6-b1be-bf5f6c01c476`
+- Added API scope: `access_as_user` (id: `26508229-a169-43ba-aa47-cbdb0695b5ca`)
+- Existing Web redirect URI retained: `https://black-bay-06582c003.1.azurestaticapps.net/.auth/login/aad/callback`
+
+**Security Impact Assessment (cross-checked against #13, #13.5, #13.6, #13.7):**
+
+| Guardrail | Impact |
+|---|---|
+| S1–S4 (SAS auth, blob traversal, IDOR, auth default) | ✅ Unchanged — backend code not modified |
+| S5 (Functions directly accessible) | ✅ **Improved** — EasyAuth v2 validates AAD tokens (audience + issuer) vs old IP restrictions that allowed any Azure resource |
+| S6 (Cosmos local auth) | ✅ Unchanged — `disableLocalAuth: true` |
+| S7 (SSRF) | ✅ Unchanged — URL validator in place |
+| S8 (CSP) | ✅ Updated — added `login.microsoftonline.com` to `connect-src` + `frame-src` |
+| S9–S10 (Rate limiting, AI endpoints) | ✅ Unchanged |
+| S11 (CORS localhost) | ✅ Still env-parameterized; added `supportCredentials: true` (required for Bearer tokens) |
+| S12–S14 (Payload limits, storage identity, rotation) | ✅ Unchanged |
+| SEC-P1 (Function App access) | ✅ **Upgraded** — IP restrictions → EasyAuth v2. Net security improvement. |
+| SEC-P2–P4 (SP scope, budget, KV refs) | ✅ Unchanged |
+| SEC-P5 (Base64 principal validation) | ✅ Unchanged — `authMiddleware.ts` reads same header (now injected by Function App EasyAuth instead of SWA) |
+| SEC-P6 (SAS content-type) | ✅ Unchanged |
+| #13.7 (Entra app registration) | ✅ Extended — SPA redirect URIs + API scope added to existing `wardrobe-swa-auth` registration |
+
+**Acceptance Criteria:**
+- [x] Frontend builds successfully with MSAL integration (TypeScript clean, Vite production build passes).
+- [x] Backend is unchanged — 192 tests pass across 18 files.
+- [x] No security guardrails from #13/#13.5/#13.6/#13.7 are weakened.
+- [x] SEC-P1 is upgraded (IP restrictions → EasyAuth v2).
+- [x] Bicep templates are updated to deploy EasyAuth v2 declaratively.
+- [x] Deploy workflow no longer deploys managed functions.
+- [ ] After deployment: `/api/stats/summary` returns 200 (not 500).
+- [ ] After deployment: unauthenticated requests to Function App return 401.
+
+**Phone-Test Validation:**
+> Open the SWA URL in a phone browser (incognito). Verify: (1) MSAL redirects to Entra login, (2) after sign-in the Dashboard loads with real data from `func-wardrobe-dev`, (3) network tab shows requests to `func-wardrobe-dev.azurewebsites.net/api/*` with `Authorization: Bearer` header, (4) no 500 errors.
 
 ---
 

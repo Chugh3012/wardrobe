@@ -55,6 +55,12 @@ param includeCorsLocalhost bool = false
 @description('Application Insights connection string (Issue #14).')
 param appInsightsConnectionString string = ''
 
+@description('Azure AD tenant ID for EasyAuth token validation.')
+param aadTenantId string = ''
+
+@description('Azure AD client (application) ID for EasyAuth.')
+param aadClientId string = ''
+
 // ── Storage Account (required by Functions runtime) ──────────────────────────
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -102,37 +108,15 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
       nodeVersion: '~20'
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
-      // ── Access restrictions (SEC-P1) ────────────────────────────────────────
-      // On SWA Free tier, linked-backend is not available, so we restrict
-      // inbound traffic to Azure-sourced IPs only. This blocks direct internet
-      // access while allowing SWA (which runs inside Azure) to proxy requests.
-      // For production, upgrade SWA to Standard and use a linked backend or
-      // configure Private Endpoints for full network isolation.
-      ipSecurityRestrictions: [
-        {
-          action: 'Allow'
-          tag: 'ServiceTag'
-          ipAddress: 'AzureCloud'
-          name: 'AllowAzureServices'
-          priority: 100
-          description: 'Allow traffic from Azure services (includes SWA proxy).'
-        }
-        {
-          action: 'Deny'
-          ipAddress: 'Any'
-          name: 'DenyAllOther'
-          priority: 2147483647
-          description: 'Deny all non-Azure traffic.'
-        }
-      ]
-      ipSecurityRestrictionsDefaultAction: 'Deny'
-      scmIpSecurityRestrictionsUseMain: true
+      // ── CORS (SEC-P1) ────────────────────────────────────────────────────────
+      // Allow requests from the SWA frontend origin. supportCredentials must be
+      // true for MSAL to send Authorization headers cross-origin.
       cors: {
         allowedOrigins: union(
           [ 'https://${staticWebAppHostname}' ],
           includeCorsLocalhost ? [ 'http://localhost:5173' ] : []
         )
-        supportCredentials: false
+        supportCredentials: true
       }
       appSettings: [
         // Identity-based connection — no storage account keys in app settings (S13).
@@ -282,6 +266,46 @@ resource queueDataContributorAssignment 'Microsoft.Authorization/roleAssignments
     )
     principalId: functionApp.identity.principalId
     principalType: 'ServicePrincipal'
+  }
+}
+
+// ── EasyAuth v2 (Azure AD token validation) ──────────────────────────────────
+// Protects all /api/* endpoints by requiring a valid Azure AD Bearer token.
+// The frontend acquires tokens via MSAL and sends them in the Authorization
+// header.  EasyAuth validates the token signature, audience, and issuer
+// before the request reaches the Function handler.  This replaces the
+// SWA-managed-function auth flow that relied on x-ms-client-principal.
+
+resource authSettingsV2 'Microsoft.Web/sites/config@2023-12-01' = if (!empty(aadTenantId) && !empty(aadClientId)) {
+  parent: functionApp
+  name: 'authsettingsV2'
+  properties: {
+    platform: {
+      enabled: true
+    }
+    globalValidation: {
+      requireAuthentication: true
+      unauthenticatedClientAction: 'Return401'
+    }
+    identityProviders: {
+      azureActiveDirectory: {
+        enabled: true
+        registration: {
+          clientId: aadClientId
+          openIdIssuer: 'https://login.microsoftonline.com/${aadTenantId}/v2.0'
+        }
+        validation: {
+          allowedAudiences: [
+            'api://${aadClientId}'
+          ]
+        }
+      }
+    }
+    login: {
+      tokenStore: {
+        enabled: true
+      }
+    }
   }
 }
 

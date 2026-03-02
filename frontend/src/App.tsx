@@ -5,7 +5,7 @@ import Catalog from './pages/Catalog';
 import AddGarment from './pages/AddGarment';
 import DailyUpload from './pages/DailyUpload';
 import { trackPageView } from './telemetry';
-import { checkAuth } from './api';
+import { msalInstance, apiScopes } from './msalConfig';
 
 export type Page = 'dashboard' | 'catalog' | 'add' | 'upload';
 
@@ -13,21 +13,44 @@ export default function App() {
   const [page, setPage] = useState<Page>('dashboard');
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Client-side auth gate: check /.auth/me and redirect to login if needed
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // MSAL auth: handle redirect promise then check for logged-in accounts
   useEffect(() => {
-    checkAuth().then((authenticated) => {
-      if (!authenticated) {
-        window.location.href = '/.auth/login/aad?post_login_redirect_uri=' + encodeURIComponent(window.location.pathname);
-      } else {
-        setAuthChecked(true);
-      }
-    });
+    msalInstance
+      .initialize()
+      .then(() => msalInstance.handleRedirectPromise())
+      .then(() => {
+        const accounts = msalInstance.getAllAccounts();
+        if (accounts.length === 0) {
+          // No cached session — redirect to AAD login
+          msalInstance.loginRedirect({ scopes: apiScopes });
+        } else {
+          setAuthChecked(true);
+        }
+      })
+      .catch((err) => {
+        console.error('MSAL init error', err);
+        setAuthError(err?.message ?? 'Authentication failed. Please reload the page.');
+      });
   }, []);
 
   // Track page views in Application Insights (Issue #14)
   useEffect(() => {
     if (authChecked) trackPageView(page);
   }, [page, authChecked]);
+
+  if (authError) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'system-ui, sans-serif', color: '#dc2626', gap: '1rem', padding: '1rem', textAlign: 'center' }}>
+        <div>Authentication error</div>
+        <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{authError}</div>
+        <button onClick={() => window.location.reload()} style={{ padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', cursor: 'pointer', background: 'white' }}>
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   if (!authChecked) {
     return (

@@ -61,7 +61,8 @@ The main challenge is not storage/UI, it is **reliable cloth identification from
 - Optional fallback: **Azure AI Vision embeddings** + similarity search if classification confidence is low.
 
 ### Identity & Security
-- **Microsoft Entra External ID (or B2C equivalent)** for sign-in.
+- **MSAL (`@azure/msal-browser`)** for user sign-in — acquires AAD Bearer tokens via redirect flow.
+- **Function App EasyAuth v2** validates Bearer tokens (audience, issuer, signature) on every API request.
 - **Managed Identity + Key Vault** for secrets.
 - SAS or short-lived signed access patterns for image access.
 
@@ -191,9 +192,10 @@ This keeps initial cost low while preserving a production-shaped architecture.
 The application implements defence-in-depth across multiple layers:
 
 ### Network & Access Control
-- **SWA Auth Architecture (Pattern A)** — The SPA shell (HTML/JS/CSS) is publicly accessible. Only `/api/*` routes require `["authenticated"]` role at the SWA edge. The React app performs a client-side auth check via `/.auth/me` on mount and redirects unauthenticated users to `/.auth/login/aad`. This is the recommended architecture for SPAs on Azure Static Web Apps — it avoids MIME-type errors caused by server-side auth blocking static assets.
-- **Entra ID (AAD) authentication** — SWA EasyAuth configured with a dedicated app registration (`wardrobe-swa-auth`). Disabled identity providers (GitHub, Twitter) return 404. `/login` rewrites to `/.auth/login/aad`.
-- **Function App IP restrictions** — `ipSecurityRestrictions` allow only `AzureCloud` service-tag traffic; all other inbound is denied. SCM site uses the same rules.
+- **MSAL + Function App EasyAuth v2 (Pattern B)** — The frontend acquires AAD Bearer tokens via MSAL (`@azure/msal-browser`) and sends them directly to the standalone Azure Function App at `func-wardrobe-dev.azurewebsites.net`. The Function App's EasyAuth v2 validates each token's signature, audience (`api://<clientId>`), and issuer (`login.microsoftonline.com/<tenantId>/v2.0`) before the request reaches any handler. This replaces the previous Pattern A (SWA-managed-functions proxy) which failed because SWA Free-tier managed functions lack managed identity, Key Vault references, and app settings. Pattern B is strictly more secure — EasyAuth validates cryptographic token proofs rather than IP ranges.
+- **Entra ID (AAD) authentication** — A dedicated app registration (`wardrobe-swa-auth`, client ID `51fbad72-f951-47c6-b1be-bf5f6c01c476`) is configured as a SPA with redirect URIs for both production and local dev. An API scope (`access_as_user`) gates backend access. Disabled identity providers (GitHub, Twitter) return 404.
+- **Function App EasyAuth v2** — Replaces the previous `ipSecurityRestrictions` (AzureCloud service-tag) approach. EasyAuth v2 is configured in `functions.bicep` via `Microsoft.Web/sites/config@2023-12-01` (`authsettingsV2`), requiring authentication on all routes with `unauthenticatedClientAction: 'Return401'`. Only tokens issued by the correct tenant with the correct audience are accepted.
+- **CORS with credentials** — The Function App CORS policy allows only the SWA origin (+ optional `localhost:5173` for dev) with `supportCredentials: true`, enabling cross-origin Bearer token headers.
 - **No public Cosmos DB / AI endpoints** — Cosmos DB disables local auth (`disableLocalAuth: true`); AI services have `publicNetworkAccess: Disabled`.
 
 ### Identity & Secrets
@@ -203,8 +205,9 @@ The application implements defence-in-depth across multiple layers:
 - **Service principal least-privilege** — `Owner` is scoped to `rg-wardrobe-dev` only (downscoped after first deployment).
 
 ### Application-Level
-- **Client-side auth gate** — `App.tsx` calls `checkAuth()` (which hits `/.auth/me`) on mount. If no `clientPrincipal` is found, the user is redirected to `/.auth/login/aad`. The app renders a "Signing in…" loading state until auth is confirmed. In local dev (Vite without SWA), the fetch fails gracefully and allows through.
-- **Base64 client principal validation** — Auth middleware decodes and validates the `x-ms-client-principal` base64 header injected by EasyAuth, extracting `userId` from the structured JSON. Plain-text header fallback is only accepted when `REQUIRE_AUTH=false` (local development).
+- **MSAL client-side auth gate** — `App.tsx` initialises the MSAL `PublicClientApplication`, calls `handleRedirectPromise()` on mount, and checks for cached accounts. If none exist, it triggers `loginRedirect()` to the Entra login page. On MSAL errors, a dedicated error screen with retry button is shown — the app never falls through to an unauthenticated state. The "Signing in…" loading state is rendered until auth is confirmed.
+- **Bearer token acquisition** — `api.ts` acquires tokens via `acquireTokenSilent()` (cache/refresh) before every API call. If silent acquisition fails with `InteractionRequiredAuthError`, it falls back to `acquireTokenRedirect()`. Tokens are scoped to `api://<clientId>/access_as_user`.
+- **Base64 client principal validation** — Backend auth middleware decodes and validates the `x-ms-client-principal` base64 header injected by Function App EasyAuth v2, extracting `userId` from the structured JSON. Plain-text header fallback is only accepted when `REQUIRE_AUTH=false` (local development).
 - **Per-user blob scoping** — SAS URLs are scoped to `images/{userId}/` prefixes, preventing cross-user access.
 - **Content-type restrictions** — SAS upload tokens are restricted to allowed image MIME types (jpeg, png, webp, heic, heif).
 
@@ -212,7 +215,7 @@ The application implements defence-in-depth across multiple layers:
 - **Monthly budget alert** — A `Microsoft.Consumption/budgets` resource enforces a $5/month threshold with notifications at 80%, 100%, and 120%.
 
 ### Observability Security
-- **Service worker v2 (auth-aware)** — `sw.js` uses a network-first strategy for navigation requests (so the fresh `/.auth/me` state is always checked), never intercepts `/.auth/` or `/api/` paths, and only cache-first for shell assets (manifest, icons). Old caches are purged on activation.
+- **Service worker v2 (auth-aware)** — `sw.js` uses a network-first strategy for navigation requests (ensuring the page fully loads for MSAL redirect handling), never intercepts `/.auth/` paths, and only cache-first for shell assets (manifest, icons). Old caches are purged on activation.
 - **Connection string (not secret)** — The App Insights connection string only permits writing telemetry; it cannot read data. Safe to embed in client-side code and app settings.
 - **Property-key sanitization** — Backend `telemetryService.ts` strips sensitive keys (token, password, secret, authorization, cookie, key, credential) from custom event and exception properties before sending to App Insights.
 - **Try/catch isolation** — Both backend and frontend telemetry init are wrapped in try/catch blocks. A telemetry failure (e.g. malformed connection string) never crashes the application.

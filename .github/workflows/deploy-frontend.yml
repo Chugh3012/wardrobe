@@ -7,14 +7,12 @@ on:
       - main
     paths:
       - 'frontend/**'
-      - 'backend/**'
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
       - main
     paths:
       - 'frontend/**'
-      - 'backend/**'
 
 jobs:
   build_and_deploy:
@@ -51,9 +49,12 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: 'upload'
           app_location: 'frontend/dist'
-          api_location: 'backend'
           output_location: ''
           skip_app_build: true
+          # api_location intentionally omitted — the API is hosted on a
+          # standalone Function App (func-wardrobe-dev) with its own managed
+          # identity, EasyAuth, and RBAC.  The frontend calls the Function App
+          # directly using MSAL-acquired Bearer tokens.
 
   close_pull_request:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
