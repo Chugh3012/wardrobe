@@ -31,15 +31,37 @@ const SAFE_USER_ID_RE = /^[a-zA-Z0-9@._-]+$/;
 const MAX_USER_ID_LENGTH = 128;
 
 /**
- * Minimal shape of the decoded `x-ms-client-principal` JSON.
- * @see https://learn.microsoft.com/en-us/azure/static-web-apps/user-information
+ * Shape of the decoded `x-ms-client-principal` JSON.
+ *
+ * **SWA format** (Azure Static Web Apps):
+ *   `{ identityProvider, userId, userDetails, userRoles }`
+ *   @see https://learn.microsoft.com/en-us/azure/static-web-apps/user-information
+ *
+ * **App Service / Function App EasyAuth v2 format**:
+ *   `{ auth_typ, claims: [{ typ, val }], name_typ, role_typ }`
+ *   @see https://learn.microsoft.com/en-us/azure/app-service/configure-authentication-user-identities
  */
 interface ClientPrincipal {
+  /* SWA format fields */
   identityProvider?: string;
   userId?: string;
   userDetails?: string;
   userRoles?: string[];
+  /* App Service EasyAuth v2 format fields */
+  auth_typ?: string;
+  claims?: Array<{ typ: string; val: string }>;
+  name_typ?: string;
+  role_typ?: string;
 }
+
+/**
+ * OID claim types that carry the Azure AD object ID in the App Service
+ * EasyAuth v2 `claims` array, checked in priority order.
+ */
+const OID_CLAIM_TYPES = [
+  "http://schemas.microsoft.com/identity/claims/objectidentifier",
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
+];
 
 /** Returns true when strict authentication enforcement is enabled (default). */
 export function isAuthRequired(): boolean {
@@ -48,8 +70,10 @@ export function isAuthRequired(): boolean {
 
 /**
  * Attempts to decode the `x-ms-client-principal` base64 header and
- * extract the userId from within the JSON payload.  Returns `null` on
- * any validation failure.
+ * extract the userId from within the JSON payload.  Supports both the
+ * SWA format (`{ userId }`) and the App Service EasyAuth v2 format
+ * (`{ claims: [{ typ, val }] }`).  Returns `null` on any validation
+ * failure.
  */
 function extractFromClientPrincipal(
   headerValue: string,
@@ -58,21 +82,53 @@ function extractFromClientPrincipal(
     const json = Buffer.from(headerValue, "base64").toString("utf8");
     const principal: ClientPrincipal = JSON.parse(json);
 
-    if (
-      !principal ||
-      typeof principal !== "object" ||
-      typeof principal.userId !== "string"
-    ) {
+    // DEBUG: log the full decoded principal structure
+    console.log("[AUTH-DEBUG] decoded x-ms-client-principal:", JSON.stringify(principal));
+    console.log("[AUTH-DEBUG] top-level keys:", Object.keys(principal ?? {}));
+    console.log("[AUTH-DEBUG] principal.userId:", principal?.userId, "type:", typeof principal?.userId);
+    console.log("[AUTH-DEBUG] principal.claims is array:", Array.isArray(principal?.claims), "length:", principal?.claims?.length);
+    if (Array.isArray(principal?.claims)) {
+      console.log("[AUTH-DEBUG] claim types present:", principal.claims!.map((c) => c.typ));
+    }
+
+    if (!principal || typeof principal !== "object") {
+      console.log("[AUTH-DEBUG] principal is falsy or not an object, returning null");
       return null;
     }
 
-    const userId = principal.userId.trim();
-    if (!userId) return null;
-    if (userId.length > MAX_USER_ID_LENGTH) return null;
-    if (!SAFE_USER_ID_RE.test(userId)) return null;
+    let userId: string | undefined;
 
+    // ── Format 1: SWA — top-level `userId` field ────────────────────────
+    if (typeof principal.userId === "string") {
+      userId = principal.userId.trim();
+      console.log("[AUTH-DEBUG] extracted userId via SWA format:", userId);
+    }
+
+    // ── Format 2: App Service EasyAuth v2 — `claims` array ─────────────
+    if (!userId && Array.isArray(principal.claims)) {
+      for (const claimType of OID_CLAIM_TYPES) {
+        const claim = principal.claims.find(
+          (c) => c.typ === claimType && typeof c.val === "string",
+        );
+        if (claim) {
+          userId = claim.val.trim();
+          console.log("[AUTH-DEBUG] extracted userId via claims[", claimType, "]:", userId);
+          break;
+        }
+      }
+      if (!userId) {
+        console.log("[AUTH-DEBUG] no matching OID claim found in claims array");
+      }
+    }
+
+    if (!userId) { console.log("[AUTH-DEBUG] userId is empty after all extraction attempts"); return null; }
+    if (userId.length > MAX_USER_ID_LENGTH) { console.log("[AUTH-DEBUG] userId exceeds max length:", userId.length); return null; }
+    if (!SAFE_USER_ID_RE.test(userId)) { console.log("[AUTH-DEBUG] userId failed regex validation:", userId); return null; }
+
+    console.log("[AUTH-DEBUG] final extracted userId:", userId);
     return userId;
-  } catch {
+  } catch (err) {
+    console.log("[AUTH-DEBUG] extractFromClientPrincipal threw:", err);
     return null;
   }
 }
@@ -92,11 +148,24 @@ function extractFromClientPrincipal(
 export function extractUserId(
   request: HttpRequest,
 ): string | null {
+  // DEBUG: log all auth-related headers
+  console.log("[AUTH-DEBUG] === extractUserId called ===");
+  console.log("[AUTH-DEBUG] x-ms-client-principal present:", !!request.headers.get("x-ms-client-principal"));
+  console.log("[AUTH-DEBUG] x-ms-client-principal-id present:", !!request.headers.get("x-ms-client-principal-id"));
+  console.log("[AUTH-DEBUG] x-ms-client-principal-id value:", request.headers.get("x-ms-client-principal-id"));
+  console.log("[AUTH-DEBUG] authorization present:", !!request.headers.get("authorization"));
+  console.log("[AUTH-DEBUG] REQUIRE_AUTH:", process.env["REQUIRE_AUTH"], "isAuthRequired:", isAuthRequired());
+
   // ── Primary: full base64 client-principal payload (SEC-P5) ──────────────
   const principalHeader = request.headers.get("x-ms-client-principal");
   if (principalHeader && principalHeader.trim()) {
-    return extractFromClientPrincipal(principalHeader.trim());
+    console.log("[AUTH-DEBUG] using primary path (x-ms-client-principal), length:", principalHeader.length);
+    const result = extractFromClientPrincipal(principalHeader.trim());
+    console.log("[AUTH-DEBUG] extractFromClientPrincipal returned:", result);
+    return result;
   }
+
+  console.log("[AUTH-DEBUG] no x-ms-client-principal header, checking fallback");
 
   // ── Fallback: plain-text header (local dev only) ────────────────────────
   if (!isAuthRequired()) {
@@ -105,10 +174,12 @@ export function extractUserId(
       const trimmed = headerValue.trim();
       if (trimmed.length > MAX_USER_ID_LENGTH) return null;
       if (!SAFE_USER_ID_RE.test(trimmed)) return null;
+      console.log("[AUTH-DEBUG] using fallback x-ms-client-principal-id:", trimmed);
       return trimmed;
     }
   }
 
+  console.log("[AUTH-DEBUG] no userId found, returning null");
   return null;
 }
 

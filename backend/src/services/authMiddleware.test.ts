@@ -152,6 +152,161 @@ describe("authMiddleware", () => {
     expect(extractUserId(request)).toBeNull();
   });
 
+  // ── extractUserId — App Service EasyAuth v2 claims format ─────────────
+
+  it("extracts userId from EasyAuth v2 objectidentifier claim", async () => {
+    const request = new HttpRequest({
+      method: "POST",
+      url: "http://localhost/api/garments",
+      headers: {
+        "x-ms-client-principal": encodeClientPrincipal({
+          auth_typ: "aad",
+          claims: [
+            {
+              typ: "http://schemas.microsoft.com/identity/claims/objectidentifier",
+              val: "550e8400-e29b-41d4-a716-446655440000",
+            },
+            {
+              typ: "name",
+              val: "Test User",
+            },
+          ],
+          name_typ: "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
+          role_typ: "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
+        }),
+      },
+    });
+
+    const { extractUserId } = await import("./authMiddleware.js");
+    expect(extractUserId(request)).toBe(
+      "550e8400-e29b-41d4-a716-446655440000",
+    );
+  });
+
+  it("extracts userId from EasyAuth v2 nameidentifier claim as fallback", async () => {
+    const request = new HttpRequest({
+      method: "POST",
+      url: "http://localhost/api/garments",
+      headers: {
+        "x-ms-client-principal": encodeClientPrincipal({
+          auth_typ: "aad",
+          claims: [
+            {
+              typ: "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
+              val: "user-from-nameidentifier",
+            },
+          ],
+        }),
+      },
+    });
+
+    const { extractUserId } = await import("./authMiddleware.js");
+    expect(extractUserId(request)).toBe("user-from-nameidentifier");
+  });
+
+  it("prefers objectidentifier over nameidentifier in EasyAuth v2", async () => {
+    const request = new HttpRequest({
+      method: "POST",
+      url: "http://localhost/api/garments",
+      headers: {
+        "x-ms-client-principal": encodeClientPrincipal({
+          auth_typ: "aad",
+          claims: [
+            {
+              typ: "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
+              val: "nameidentifier-value",
+            },
+            {
+              typ: "http://schemas.microsoft.com/identity/claims/objectidentifier",
+              val: "objectidentifier-value",
+            },
+          ],
+        }),
+      },
+    });
+
+    const { extractUserId } = await import("./authMiddleware.js");
+    expect(extractUserId(request)).toBe("objectidentifier-value");
+  });
+
+  it("rejects EasyAuth v2 payload with empty claims array", async () => {
+    const request = new HttpRequest({
+      method: "POST",
+      url: "http://localhost/api/garments",
+      headers: {
+        "x-ms-client-principal": encodeClientPrincipal({
+          auth_typ: "aad",
+          claims: [],
+        }),
+      },
+    });
+
+    const { extractUserId } = await import("./authMiddleware.js");
+    expect(extractUserId(request)).toBeNull();
+  });
+
+  it("rejects EasyAuth v2 claim with unsafe characters in val", async () => {
+    const request = new HttpRequest({
+      method: "POST",
+      url: "http://localhost/api/garments",
+      headers: {
+        "x-ms-client-principal": encodeClientPrincipal({
+          auth_typ: "aad",
+          claims: [
+            {
+              typ: "http://schemas.microsoft.com/identity/claims/objectidentifier",
+              val: "../malicious-path",
+            },
+          ],
+        }),
+      },
+    });
+
+    const { extractUserId } = await import("./authMiddleware.js");
+    expect(extractUserId(request)).toBeNull();
+  });
+
+  it("rejects EasyAuth v2 payload with no matching OID claim types", async () => {
+    const request = new HttpRequest({
+      method: "POST",
+      url: "http://localhost/api/garments",
+      headers: {
+        "x-ms-client-principal": encodeClientPrincipal({
+          auth_typ: "aad",
+          claims: [
+            { typ: "name", val: "Test User" },
+            { typ: "email", val: "test@example.com" },
+          ],
+        }),
+      },
+    });
+
+    const { extractUserId } = await import("./authMiddleware.js");
+    expect(extractUserId(request)).toBeNull();
+  });
+
+  it("prefers SWA userId format over EasyAuth v2 claims", async () => {
+    const request = new HttpRequest({
+      method: "POST",
+      url: "http://localhost/api/garments",
+      headers: {
+        "x-ms-client-principal": encodeClientPrincipal({
+          userId: "swa-user-id",
+          auth_typ: "aad",
+          claims: [
+            {
+              typ: "http://schemas.microsoft.com/identity/claims/objectidentifier",
+              val: "easyauth-user-id",
+            },
+          ],
+        }),
+      },
+    });
+
+    const { extractUserId } = await import("./authMiddleware.js");
+    expect(extractUserId(request)).toBe("swa-user-id");
+  });
+
   // ── extractUserId — x-ms-client-principal-id fallback (dev only) ──────
 
   it("ignores plain-text header when REQUIRE_AUTH=true (default)", async () => {
