@@ -28,7 +28,6 @@ const MAX_ID_LENGTH = 256;
  *
  * Body (JSON):
  * {
- *   "userId": "string",              // required until auth middleware (Issue #13)
  *   "predictionAuditId": "string",   // the PredictionAudit to confirm/correct
  *   "confirmedGarmentId": "string",  // the garment the user confirms they wore
  *   "confirmed": boolean             // true = prediction was correct, false = corrected

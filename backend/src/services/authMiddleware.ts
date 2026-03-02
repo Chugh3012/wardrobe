@@ -12,6 +12,17 @@
 
 import type { HttpRequest } from "@azure/functions";
 
+/**
+ * Safe characters allowed in a userId value.
+ * Azure AD object IDs are UUIDs; this also allows common test-ID formats.
+ * Defense-in-depth: prevents path-traversal sequences (e.g. `../`) from
+ * being smuggled through the userId into blob paths or log entries.
+ */
+const SAFE_USER_ID_RE = /^[a-zA-Z0-9@._-]+$/;
+
+/** Maximum length for a userId value. */
+const MAX_USER_ID_LENGTH = 128;
+
 /** Returns true when strict authentication enforcement is enabled (default). */
 export function isAuthRequired(): boolean {
   return process.env["REQUIRE_AUTH"] !== "false";
@@ -21,14 +32,18 @@ export function isAuthRequired(): boolean {
  * Extracts the userId from the request.
  *
  * Only the `x-ms-client-principal-id` header (set by Azure EasyAuth / SWA
- * auth) is accepted.  Returns `null` when the header is absent or empty.
+ * auth) is accepted.  Returns `null` when the header is absent, empty, or
+ * contains characters outside the safe allow-list.
  */
 export function extractUserId(
   request: HttpRequest,
 ): string | null {
   const headerValue = request.headers.get("x-ms-client-principal-id");
   if (headerValue && headerValue.trim()) {
-    return headerValue.trim();
+    const trimmed = headerValue.trim();
+    if (trimmed.length > MAX_USER_ID_LENGTH) return null;
+    if (!SAFE_USER_ID_RE.test(trimmed)) return null;
+    return trimmed;
   }
 
   return null;

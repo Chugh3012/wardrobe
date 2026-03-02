@@ -12,11 +12,10 @@ import {
 } from "../services/authMiddleware.js";
 
 /**
- * GET /api/stats/summary?userId=<string>
+ * GET /api/stats/summary
  *
  * Returns aggregated wear statistics for the authenticated user's wardrobe.
- * Prefers the `x-ms-client-principal-id` header (Issue #13); falls back
- * to the `userId` query parameter for backward compatibility.
+ * Uses the `x-ms-client-principal-id` header (Issue #13) for authentication.
  *
  * Response shape:
  * {

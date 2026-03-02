@@ -288,4 +288,19 @@ describe("POST /api/garments", () => {
     expect(res.status).toBe(400);
     expect((res.jsonBody as { error: string }).error).toContain("allowed domain");
   });
+
+  // ── S12: URL length limits on catalogImageUrls ──────────────────────────────
+
+  it("returns 400 when a catalogImageUrl exceeds 2048 characters", async () => {
+    const { postGarment } = await import("./postGarment.js");
+    const longUrl = "https://storageaccount.blob.core.windows.net/images/" + "a".repeat(2048) + ".jpg";
+    const urls = [
+      longUrl,
+      "https://storageaccount.blob.core.windows.net/images/img2.jpg",
+      "https://storageaccount.blob.core.windows.net/images/img3.jpg",
+    ];
+    const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls }), "user-1"), makeContext());
+    expect(res.status).toBe(400);
+    expect((res.jsonBody as { error: string }).error).toContain("at most 2048");
+  });
 });
