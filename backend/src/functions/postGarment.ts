@@ -12,6 +12,7 @@ import {
   isAuthRequired,
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
+import { isValidImageUrl } from "../services/urlValidator.js";
 
 /** Minimum number of catalog photos required for onboarding. */
 const MIN_PHOTOS = 3;
@@ -116,6 +117,18 @@ export async function postGarment(
         error: `'catalogImageUrls' must contain between ${MIN_PHOTOS} and ${MAX_PHOTOS} URLs. Received ${catalogImageUrls.length}.`,
       },
     };
+  }
+
+  for (const url of catalogImageUrls) {
+    if (!isValidImageUrl(url)) {
+      return {
+        status: 400,
+        jsonBody: {
+          error:
+            "Each entry in 'catalogImageUrls' must be a valid HTTPS URL from an allowed domain (*.blob.core.windows.net).",
+        },
+      };
+    }
   }
 
   // ── Create garment ─────────────────────────────────────────────────────────

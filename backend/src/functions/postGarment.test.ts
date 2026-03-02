@@ -47,9 +47,9 @@ function validBody(overrides: Record<string, unknown> = {}) {
     name: "Blue Shirt",
     category: "top",
     catalogImageUrls: [
-      "https://blob.example.com/img1.jpg",
-      "https://blob.example.com/img2.jpg",
-      "https://blob.example.com/img3.jpg",
+      "https://storageaccount.blob.core.windows.net/images/img1.jpg",
+      "https://storageaccount.blob.core.windows.net/images/img2.jpg",
+      "https://storageaccount.blob.core.windows.net/images/img3.jpg",
     ],
     ...overrides,
   };
@@ -78,9 +78,9 @@ describe("POST /api/garments", () => {
       name: "Blue Shirt",
       category: "top",
       catalogImageUrls: [
-        "https://blob.example.com/img1.jpg",
-        "https://blob.example.com/img2.jpg",
-        "https://blob.example.com/img3.jpg",
+        "https://storageaccount.blob.core.windows.net/images/img1.jpg",
+        "https://storageaccount.blob.core.windows.net/images/img2.jpg",
+        "https://storageaccount.blob.core.windows.net/images/img3.jpg",
       ],
       wearCount: 0,
       createdAt: "2026-01-01T00:00:00.000Z",
@@ -165,7 +165,7 @@ describe("POST /api/garments", () => {
 
   it("returns 400 when catalogImageUrls has more than 8 items", async () => {
     const { postGarment } = await import("./postGarment.js");
-    const urls = Array.from({ length: 9 }, (_, i) => `https://blob.example.com/img${i}.jpg`);
+    const urls = Array.from({ length: 9 }, (_, i) => `https://storageaccount.blob.core.windows.net/images/img${i}.jpg`);
     const res = await postGarment(
       makeRequest(validBody({ catalogImageUrls: urls })),
       makeContext()
@@ -199,7 +199,7 @@ describe("POST /api/garments", () => {
   it("accepts exactly 3 photos (minimum)", async () => {
     mockCreate.mockResolvedValue({ resource: { id: "g1" } });
     const { postGarment } = await import("./postGarment.js");
-    const urls = Array.from({ length: 3 }, (_, i) => `https://blob.example.com/img${i}.jpg`);
+    const urls = Array.from({ length: 3 }, (_, i) => `https://storageaccount.blob.core.windows.net/images/img${i}.jpg`);
     const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls })), makeContext());
     expect(res.status).toBe(201);
   });
@@ -207,7 +207,7 @@ describe("POST /api/garments", () => {
   it("accepts exactly 8 photos (maximum)", async () => {
     mockCreate.mockResolvedValue({ resource: { id: "g1" } });
     const { postGarment } = await import("./postGarment.js");
-    const urls = Array.from({ length: 8 }, (_, i) => `https://blob.example.com/img${i}.jpg`);
+    const urls = Array.from({ length: 8 }, (_, i) => `https://storageaccount.blob.core.windows.net/images/img${i}.jpg`);
     const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls })), makeContext());
     expect(res.status).toBe(201);
   });
@@ -220,5 +220,43 @@ describe("POST /api/garments", () => {
     const res = await postGarment(makeRequest(validBody()), makeContext());
     expect(res.status).toBe(500);
     expect((res.jsonBody as { error: string }).error).toContain("Failed to create garment");
+  });
+
+  // ── S7: SSRF — catalogImageUrls URL validation ────────────────────────────
+
+  it("returns 400 when a catalogImageUrl uses http instead of https", async () => {
+    const { postGarment } = await import("./postGarment.js");
+    const urls = [
+      "http://storageaccount.blob.core.windows.net/images/img1.jpg",
+      "https://storageaccount.blob.core.windows.net/images/img2.jpg",
+      "https://storageaccount.blob.core.windows.net/images/img3.jpg",
+    ];
+    const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls })), makeContext());
+    expect(res.status).toBe(400);
+    expect((res.jsonBody as { error: string }).error).toContain("allowed domain");
+  });
+
+  it("returns 400 when a catalogImageUrl is not from blob.core.windows.net", async () => {
+    const { postGarment } = await import("./postGarment.js");
+    const urls = [
+      "https://evil.example.com/img1.jpg",
+      "https://storageaccount.blob.core.windows.net/images/img2.jpg",
+      "https://storageaccount.blob.core.windows.net/images/img3.jpg",
+    ];
+    const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls })), makeContext());
+    expect(res.status).toBe(400);
+    expect((res.jsonBody as { error: string }).error).toContain("allowed domain");
+  });
+
+  it("returns 400 when a catalogImageUrl targets the Azure IMDS endpoint (SSRF)", async () => {
+    const { postGarment } = await import("./postGarment.js");
+    const urls = [
+      "https://169.254.169.254/metadata/identity/oauth2/token",
+      "https://storageaccount.blob.core.windows.net/images/img2.jpg",
+      "https://storageaccount.blob.core.windows.net/images/img3.jpg",
+    ];
+    const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls })), makeContext());
+    expect(res.status).toBe(400);
+    expect((res.jsonBody as { error: string }).error).toContain("allowed domain");
   });
 });

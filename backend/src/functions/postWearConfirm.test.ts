@@ -122,6 +122,8 @@ describe("POST /api/wear/confirm", () => {
   it("returns 200 with the created WearEvent when confirmed = true", async () => {
     // readPredictionAudit
     mockRead.mockResolvedValueOnce({ resource: sampleAudit() });
+    // readGarment (ownership check)
+    mockRead.mockResolvedValueOnce({ resource: sampleGarment() });
     // createWearEvent
     mockCreate.mockResolvedValueOnce({ resource: sampleWearEvent() });
     // incrementWearCount: read garment
@@ -138,6 +140,8 @@ describe("POST /api/wear/confirm", () => {
 
   it("creates a WearEvent and increments wearCount on confirmed = true", async () => {
     mockRead.mockResolvedValueOnce({ resource: sampleAudit() });
+    // readGarment (ownership check)
+    mockRead.mockResolvedValueOnce({ resource: sampleGarment() });
     mockCreate.mockResolvedValueOnce({ resource: sampleWearEvent() });
     mockRead.mockResolvedValueOnce({ resource: sampleGarment() });
     mockReplace.mockResolvedValueOnce({ resource: { ...sampleGarment(), wearCount: 4 } });
@@ -164,6 +168,8 @@ describe("POST /api/wear/confirm", () => {
     const audit = sampleAudit();
     // readPredictionAudit (for the function)
     mockRead.mockResolvedValueOnce({ resource: audit });
+    // readGarment (ownership check)
+    mockRead.mockResolvedValueOnce({ resource: { ...sampleGarment(), id: "g2" } });
     // updatePredictionAudit: read audit
     mockRead.mockResolvedValueOnce({ resource: audit });
     // updatePredictionAudit: replace audit
@@ -289,6 +295,8 @@ describe("POST /api/wear/confirm", () => {
 
   it("returns 500 when createWearEvent throws", async () => {
     mockRead.mockResolvedValueOnce({ resource: sampleAudit() });
+    // readGarment (ownership check)
+    mockRead.mockResolvedValueOnce({ resource: sampleGarment() });
     mockCreate.mockRejectedValueOnce(new Error("Cosmos DB write failed"));
 
     const { postWearConfirm } = await import("./postWearConfirm.js");
@@ -296,5 +304,23 @@ describe("POST /api/wear/confirm", () => {
 
     expect(res.status).toBe(500);
     expect((res.jsonBody as { error: string }).error).toContain("Failed to confirm");
+  });
+
+  // ── S3: IDOR — garment ownership check ───────────────────────────────────
+
+  it("returns 404 when confirmedGarmentId does not belong to the authenticated user", async () => {
+    // readPredictionAudit succeeds (audit belongs to user-1)
+    mockRead.mockResolvedValueOnce({ resource: sampleAudit() });
+    // readGarment returns undefined — garment belongs to a different user
+    mockRead.mockResolvedValueOnce({ resource: undefined });
+
+    const { postWearConfirm } = await import("./postWearConfirm.js");
+    const res = await postWearConfirm(
+      makeRequest(validBody({ confirmedGarmentId: "other-users-garment" })),
+      makeContext()
+    );
+
+    expect(res.status).toBe(404);
+    expect((res.jsonBody as { error: string }).error).toContain("Garment not found");
   });
 });
