@@ -104,13 +104,10 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         supportCredentials: false
       }
       appSettings: [
+        // Identity-based connection — no storage account keys in app settings (S13).
         {
-          name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
-        }
-        {
-          name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+          name: 'AzureWebJobsStorage__accountName'
+          value: storageAccount.name
         }
         {
           name: 'WEBSITE_CONTENTSHARE'
@@ -178,6 +175,54 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         }
       ]
     }
+  }
+}
+
+// ── RBAC: Function App MI → Functions runtime storage account (S13) ──────────
+// Identity-based AzureWebJobsStorage requires these roles on the runtime
+// storage account so the Functions host can manage triggers, state, and the
+// Consumption-plan content file share without embedded account keys.
+
+var storageBlobDataOwnerRoleId = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
+var storageAccountContributorRoleId = '17d1049b-9a84-46fb-8f53-869881c3d3ab'
+var storageQueueDataContributorRoleId = '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
+
+resource blobDataOwnerAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, functionApp.id, storageBlobDataOwnerRoleId)
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      storageBlobDataOwnerRoleId
+    )
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource storageAccountContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, functionApp.id, storageAccountContributorRoleId)
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      storageAccountContributorRoleId
+    )
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource queueDataContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, functionApp.id, storageQueueDataContributorRoleId)
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      storageQueueDataContributorRoleId
+    )
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
   }
 }
 
