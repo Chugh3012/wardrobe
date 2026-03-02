@@ -6,11 +6,18 @@ import {
 } from "@azure/functions";
 import { listGarments } from "../services/garmentService.js";
 import { listWearEvents } from "../services/wearEventService.js";
+import {
+  extractUserId,
+  isAuthRequired,
+  unauthorizedResponse,
+} from "../services/authMiddleware.js";
 
 /**
  * GET /api/stats/summary?userId=<string>
  *
  * Returns aggregated wear statistics for the authenticated user's wardrobe.
+ * Prefers the `x-ms-client-principal-id` header (Issue #13); falls back
+ * to the `userId` query parameter for backward compatibility.
  *
  * Response shape:
  * {
@@ -25,14 +32,18 @@ import { listWearEvents } from "../services/wearEventService.js";
  *
  * Returns HTTP 200 with the summary object.
  * Returns HTTP 400 if userId is missing.
+ * Returns HTTP 401 when REQUIRE_AUTH is enabled and no auth header is present.
  */
 export async function getStatsSummary(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  const userId = request.query.get("userId")?.trim() ?? "";
+  const userId = extractUserId(request, {
+    userId: request.query.get("userId") ?? undefined,
+  });
 
   if (!userId) {
+    if (isAuthRequired()) return unauthorizedResponse();
     return {
       status: 400,
       jsonBody: { error: "'userId' query parameter is required." },

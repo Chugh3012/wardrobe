@@ -34,6 +34,18 @@ param cosmosDbEndpoint string
 @description('Name of the Cosmos DB SQL database.')
 param cosmosDbDatabaseName string
 
+@description('Key Vault URI for secret references.')
+param keyVaultUri string = ''
+
+@description('Custom Vision Training endpoint.')
+param cvTrainingEndpoint string = ''
+
+@description('Custom Vision Prediction endpoint.')
+param cvPredictionEndpoint string = ''
+
+@description('AI Vision endpoint for image embeddings.')
+param aiVisionEndpoint string = ''
+
 // ── Storage Account (required by Functions runtime) ──────────────────────────
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -132,6 +144,27 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         {
           name: 'COSMOS_DB_DATABASE_NAME'
           value: cosmosDbDatabaseName
+        }
+        // ── AI / ML service endpoints (non-secret; keys are stored in Key Vault) ──
+        {
+          name: 'CUSTOM_VISION_TRAINING_ENDPOINT'
+          value: cvTrainingEndpoint
+        }
+        {
+          name: 'CUSTOM_VISION_PREDICTION_ENDPOINT'
+          value: cvPredictionEndpoint
+        }
+        {
+          name: 'AI_VISION_ENDPOINT'
+          value: aiVisionEndpoint
+        }
+        // API keys are stored as Key Vault references. Populate the secrets
+        // in Key Vault via: az keyvault secret set --vault-name <vaultName> --name <secretName> --value <secretValue>
+        // Then set these app settings to: @Microsoft.KeyVault(SecretUri=<secretUri>)
+        // Example: @Microsoft.KeyVault(SecretUri=https://kv-wardrobe-dev.vault.azure.net/secrets/CustomVisionTrainingKey)
+        {
+          name: 'KEY_VAULT_URI'
+          value: keyVaultUri
         }
       ]
     }

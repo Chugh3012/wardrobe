@@ -105,6 +105,7 @@ describe("POST /api/wear/predict", () => {
         { garmentId: "g1", confidence: 0.95 },
         { garmentId: "g2", confidence: 0.85 },
       ],
+      source: "stub",
       userFinalSelection: "",
       createdAt: "2026-03-01T00:00:00.000Z",
     };
@@ -117,6 +118,8 @@ describe("POST /api/wear/predict", () => {
 
     const json = res.jsonBody as {
       predictionAuditId: string;
+      source: string;
+      confidenceLevel: string;
       predictions: Array<{
         garmentId: string;
         garmentName: string;
@@ -125,6 +128,8 @@ describe("POST /api/wear/predict", () => {
     };
 
     expect(json.predictionAuditId).toBe("audit-1");
+    expect(json.source).toBe("stub");
+    expect(json.confidenceLevel).toBe("high");
     expect(json.predictions).toHaveLength(2);
     expect(json.predictions[0]).toEqual({
       garmentId: "g1",
@@ -146,6 +151,7 @@ describe("POST /api/wear/predict", () => {
         userId: "user-1",
         inputImageUrl: "https://blob.example.com/outfits/photo1.jpg",
         topKPredictions: [],
+        source: "stub",
         userFinalSelection: "",
         createdAt: "2026-03-01T00:00:00.000Z",
       },
@@ -158,6 +164,7 @@ describe("POST /api/wear/predict", () => {
     const created = mockCreate.mock.calls[0][0];
     expect(created.userId).toBe("user-1");
     expect(created.inputImageUrl).toBe("https://blob.example.com/outfits/photo1.jpg");
+    expect(created.source).toBe("stub");
     expect(created.userFinalSelection).toBe("");
     expect(created.topKPredictions).toHaveLength(2);
   });

@@ -106,3 +106,152 @@
   line-height: 1.6;
   text-align: center;
 }
+
+/* ── Prediction results ──────────────────────────────────────────────────── */
+
+.predictionResults {
+  background: var(--color-surface);
+  border-radius: 16px;
+  padding: 20px 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.resultTitle {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+/* ── High confidence ─────────────────────────────────────────────────────── */
+
+.highConfidence {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.matchCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px;
+  background: var(--color-primary-light);
+  border-radius: 12px;
+  width: 100%;
+}
+
+.matchName {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.matchConfidence {
+  font-size: 14px;
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.confirmButton {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.confirmButton:active {
+  opacity: 0.85;
+}
+
+.chooseOtherButton {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 4px;
+}
+
+/* ── Multiple choices (medium / low confidence) ──────────────────────────── */
+
+.multipleChoices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.choiceList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.choiceItem {
+  width: 100%;
+}
+
+.choiceButton {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border: 2px solid var(--color-primary-light);
+  border-radius: 12px;
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.choiceButton:active {
+  border-color: var(--color-primary);
+}
+
+.choiceName {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.choiceConfidence {
+  font-size: 13px;
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+/* ── Confirmed state ─────────────────────────────────────────────────────── */
+
+.confirmedState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+  background: var(--color-surface);
+  border-radius: 16px;
+  margin-bottom: 20px;
+}
+
+.confirmedIcon {
+  font-size: 40px;
+}
+
+.confirmedText {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  text-align: center;
+}

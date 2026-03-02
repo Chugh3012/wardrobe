@@ -42,6 +42,42 @@ module swa 'modules/static-web-app.bicep' = {
   }
 }
 
+// ── Cosmos DB ─────────────────────────────────────────────────────────────────
+
+module cosmosDb 'modules/cosmos-db.bicep' = {
+  name: 'cosmos-db-${environmentName}'
+  scope: rg
+  params: {
+    location: location
+    environmentName: environmentName
+    tags: tags
+  }
+}
+
+// ── Key Vault (no RBAC here — see key-vault-rbac below) ──────────────────────
+
+module keyVault 'modules/key-vault.bicep' = {
+  name: 'key-vault-${environmentName}'
+  scope: rg
+  params: {
+    location: location
+    environmentName: environmentName
+    tags: tags
+  }
+}
+
+// ── AI Services (Custom Vision + Computer Vision) ────────────────────────────
+
+module aiServices 'modules/ai-services.bicep' = {
+  name: 'ai-services-${environmentName}'
+  scope: rg
+  params: {
+    location: location
+    environmentName: environmentName
+    tags: tags
+  }
+}
+
 // ── Azure Functions Backend API ───────────────────────────────────────────────
 
 var blobStorageAccountName = 'stwardrobeimg${environmentName}'
@@ -59,6 +95,10 @@ module functions 'modules/functions.bicep' = {
     blobContainerName: blobContainerName
     cosmosDbEndpoint: cosmosDb.outputs.cosmosEndpoint
     cosmosDbDatabaseName: cosmosDb.outputs.databaseName
+    keyVaultUri: keyVault.outputs.keyVaultUri
+    cvTrainingEndpoint: aiServices.outputs.cvTrainingEndpoint
+    cvPredictionEndpoint: aiServices.outputs.cvPredictionEndpoint
+    aiVisionEndpoint: aiServices.outputs.aiVisionEndpoint
   }
 }
 
@@ -76,18 +116,6 @@ module blobStorage 'modules/blob-storage.bicep' = {
   }
 }
 
-// ── Cosmos DB ─────────────────────────────────────────────────────────────────
-
-module cosmosDb 'modules/cosmos-db.bicep' = {
-  name: 'cosmos-db-${environmentName}'
-  scope: rg
-  params: {
-    location: location
-    environmentName: environmentName
-    tags: tags
-  }
-}
-
 // ── Cosmos DB RBAC (depends on both Cosmos DB and Functions) ──────────────────
 
 module cosmosDbRbac 'modules/cosmos-db-rbac.bicep' = {
@@ -95,6 +123,17 @@ module cosmosDbRbac 'modules/cosmos-db-rbac.bicep' = {
   scope: rg
   params: {
     cosmosAccountName: cosmosDb.outputs.cosmosAccountName
+    functionAppPrincipalId: functions.outputs.functionAppPrincipalId
+  }
+}
+
+// ── Key Vault RBAC (depends on both Key Vault and Functions) ─────────────────
+
+module keyVaultRbac 'modules/key-vault-rbac.bicep' = {
+  name: 'key-vault-rbac-${environmentName}'
+  scope: rg
+  params: {
+    keyVaultName: keyVault.outputs.keyVaultName
     functionAppPrincipalId: functions.outputs.functionAppPrincipalId
   }
 }
@@ -124,3 +163,18 @@ output cosmosAccountName string = cosmosDb.outputs.cosmosAccountName
 
 @description('Cosmos DB account endpoint URI.')
 output cosmosEndpoint string = cosmosDb.outputs.cosmosEndpoint
+
+@description('Name of the Key Vault.')
+output keyVaultName string = keyVault.outputs.keyVaultName
+
+@description('URI of the Key Vault.')
+output keyVaultUri string = keyVault.outputs.keyVaultUri
+
+@description('Custom Vision Training endpoint.')
+output cvTrainingEndpoint string = aiServices.outputs.cvTrainingEndpoint
+
+@description('Custom Vision Prediction endpoint.')
+output cvPredictionEndpoint string = aiServices.outputs.cvPredictionEndpoint
+
+@description('AI Vision endpoint for image embeddings.')
+output aiVisionEndpoint string = aiServices.outputs.aiVisionEndpoint
