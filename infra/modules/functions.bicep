@@ -46,7 +46,7 @@ param cvPredictionEndpoint string = ''
 @description('AI Vision endpoint for image embeddings.')
 param aiVisionEndpoint string = ''
 
-@description('Include localhost CORS origin for local development (dev only).')
+@description('Include http://localhost:5173 CORS origin (dev only, S11).')
 param includeCorsLocalhost bool = false
 
 // ── Storage Account (required by Functions runtime) ──────────────────────────
