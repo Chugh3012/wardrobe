@@ -621,19 +621,27 @@ This issue creates the Entra app registration, wires it into SWA, and replaces a
 
 ### Issue #14: Setup Observability (Application Insights & Log Analytics)
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 Instrument the Azure Functions backend and the frontend PWA with Application Insights. Configure Log Analytics workspace for centralized log aggregation. Track request tracing, prediction confidence metrics, and error diagnostics to enable rapid debugging and performance monitoring.
 
 **Acceptance Criteria:**
-- Application Insights resource is provisioned and connected to the Functions app.
-- Frontend PWA sends page view and custom event telemetry to Application Insights.
-- All Azure Functions requests are automatically traced (correlation IDs, duration, status codes).
-- Custom metrics are tracked: prediction confidence scores, fallback trigger rate, wear confirmation rate.
-- Error diagnostics: exceptions and failed requests are logged with enough context to reproduce.
-- Log Analytics workspace is connected to Application Insights for advanced queries.
-- Sampling is configured to manage costs at low volume.
+- [x] Application Insights resource is provisioned and connected to the Functions app.
+- [x] Frontend PWA sends page view and custom event telemetry to Application Insights.
+- [x] All Azure Functions requests are automatically traced (correlation IDs, duration, status codes).
+- [x] Custom metrics are tracked: prediction confidence scores, fallback trigger rate, wear confirmation rate.
+- [x] Error diagnostics: exceptions and failed requests are logged with enough context to reproduce.
+- [x] Log Analytics workspace is connected to Application Insights for advanced queries.
+- [x] Sampling is configured to manage costs at low volume.
+
+**Implementation summary (branch `feature/issue-14-observability`):**
+- **Bicep:** New `infra/modules/observability.bicep` — Log Analytics workspace + workspace-based Application Insights. Connection string passed to Functions app setting.
+- **Backend:** `telemetryService.ts` — wrapper around `applicationinsights` SDK with property-key sanitization (deny-list: token, password, secret, authorization, cookie, key, credential). All 6 function handlers instrumented with `trackEvent`, `trackMetric`, `trackException`.
+- **Frontend:** `telemetry.ts` — `@microsoft/applicationinsights-web` SDK wrapper. `initTelemetry()` at startup, `trackPageView()` on navigation.
+- **host.json:** Adaptive sampling (excludes Request, Exception, Event types), W3C distributed tracing, Live Metrics enabled.
+- **CSP:** `connect-src` extended to allow App Insights ingestion endpoints.
+- **Tests:** 15 tests in `telemetryService.test.ts` (no-op when unconfigured, delegation, sanitization, fallback error handling). Total: 192 tests across 18 files.
 
 **Phone-Test Validation:**
 > Trigger a request from a phone (e.g., load the garments page or submit a prediction). Within a few minutes, verify in the Azure Portal (Application Insights → Live Metrics or Search) that the request trace appears with the correct status code and duration. (This verification step can be done from a desktop portal while the trigger is done from phone.)

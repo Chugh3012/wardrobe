@@ -4,8 +4,26 @@
     "applicationInsights": {
       "samplingSettings": {
         "isEnabled": true,
-        "excludedTypes": "Request"
+        "excludedTypes": "Request;Exception;Event",
+        "maxTelemetryItemsPerSecond": 5,
+        "evaluationInterval": "00:00:15",
+        "initialSamplingPercentage": 100,
+        "minSamplingPercentage": 10,
+        "maxSamplingPercentage": 100,
+        "movingAverageRatio": 0.25
+      },
+      "enableLiveMetrics": true,
+      "httpAutoCollectionOptions": {
+        "enableHttpTriggerExtendedInfoCollection": true,
+        "enableW3CDistributedTracing": true,
+        "enableResponseHeaderInjection": true
       }
+    },
+    "logLevel": {
+      "default": "Information",
+      "Host.Results": "Information",
+      "Function": "Information",
+      "Host.Aggregator": "Information"
     }
   },
   "extensions": {

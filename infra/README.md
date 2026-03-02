@@ -236,5 +236,6 @@ infra/
     ├── ai-services.bicep       # Issue #10 — Cognitive Services (Custom Vision + AI Vision)
     ├── key-vault.bicep         # Issue #13 — Key Vault (RBAC, soft-delete, purge protection)
     ├── key-vault-rbac.bicep    # Issue #13 — Key Vault RBAC role assignments
-    └── budget.bicep            # Issue #13.6 — Monthly budget alert ($5, 3 tiers)
+    ├── budget.bicep            # Issue #13.6 — Monthly budget alert ($5, 3 tiers)
+    └── observability.bicep     # Issue #14 — Log Analytics + Application Insights
 ```

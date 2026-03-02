@@ -66,6 +66,9 @@ Every feature in this project must be verifiable from a real phone browser (or i
 | Plain-text header fallback | Ignored when `REQUIRE_AUTH=true`; accepted only when `REQUIRE_AUTH=false`; base64 takes priority when both headers are present | `authMiddleware.test.ts` |
 | SAS content-type restrictions | Default to `image/jpeg`, accept `image/png` / `image/webp`, reject `text/plain` / `application/octet-stream` | `images.test.ts` |
 | Per-function auth enforcement | Every function test file uses `encodeClientPrincipal()` helper to supply a valid base64 `x-ms-client-principal` header | `*.test.ts` (all 7 function files) |
+| Telemetry property-key sanitization | Denied keys (token, password, secret, authorization, cookie, key, credential) are stripped from custom event and exception properties before sending to App Insights | `telemetryService.test.ts` |
+| Telemetry init fault isolation | `getTelemetryClient()` returns `null` (no-op) when `setup().start()` throws (e.g. malformed connection string), preventing telemetry from crashing the Function | `telemetryService.test.ts` |
+| Telemetry no-op when unconfigured | All telemetry functions (`trackEvent`, `trackMetric`, `trackException`, `flushTelemetry`) are safe no-ops when `APPLICATIONINSIGHTS_CONNECTION_STRING` is absent | `telemetryService.test.ts` |
 
 #### Test patterns
 

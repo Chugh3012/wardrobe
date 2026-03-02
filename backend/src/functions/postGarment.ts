@@ -12,6 +12,7 @@ import {
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
 import { isValidImageUrl } from "../services/urlValidator.js";
+import { trackEvent, trackException } from "../services/telemetryService.js";
 
 /** Minimum number of catalog photos required for onboarding. */
 const MIN_PHOTOS = 3;
@@ -195,12 +196,23 @@ export async function postGarment(
 
     context.log(`Created garment ${garment.id} for user ${userId}`);
 
+    // ── Custom telemetry (Issue #14) ──────────────────────────────────────
+    trackEvent(
+      "GarmentCreated",
+      { userId, garmentId: garment.id, category },
+      { photoCount: catalogImageUrls.length, embeddingCount: embeddings.length }
+    );
+
     return {
       status: 201,
       jsonBody: garment,
     };
   } catch (err) {
     context.log(`Error creating garment: ${err}`);
+    trackException(
+      err instanceof Error ? err : new Error(String(err)),
+      { endpoint: "POST /garments", userId: userId ?? "unknown" }
+    );
     return {
       status: 500,
       jsonBody: { error: "Failed to create garment. Check server logs." },

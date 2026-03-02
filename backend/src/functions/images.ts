@@ -15,6 +15,7 @@ import {
   extractUserId,
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
+import { trackException } from "../services/telemetryService.js";
 
 const BLOB_CONTAINER_NAME_DEFAULT = "images";
 
@@ -212,6 +213,10 @@ export async function generateSasUrl(
     };
   } catch (err) {
     context.log(`Error generating SAS URL: ${err}`);
+    trackException(
+      err instanceof Error ? err : new Error(String(err)),
+      { endpoint: "POST /images/sas-url", userId: userId ?? "unknown" }
+    );
     return {
       status: 500,
       jsonBody: { error: "Failed to generate SAS URL. Check server logs." },
