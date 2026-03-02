@@ -212,3 +212,44 @@ A feature issue is considered **done** only when:
 - **Overall:** [ ] Pass / [ ] Fail
 - **Blocking issues:** None expected
 - **Notes:** This is the foundational testing document; all future issues reference it.
+
+---
+
+## 8) Phone-Test Checklist — Issue #15: End-to-End Flow Validation
+
+**Device:** iPhone / Android smartphone
+**Browser:** Safari (iOS) / Chrome (Android)
+
+#### Pre-Conditions
+- [ ] App is deployed to SWA URL and accessible
+- [ ] EasyAuth login is configured (Issue #13.7)
+- [ ] Backend API is deployed and running
+- [ ] Tester is signed in via Entra ID
+
+#### Test Steps
+| # | Action | Expected Result | Pass/Fail | Notes |
+|---|--------|-----------------|-----------|-------|
+| 1 | Open app URL on phone browser | App loads, Dashboard shows loading then stats | [ ] | |
+| 2 | Navigate to Catalog tab | Catalog shows loading, then empty state or garment grid | [ ] | |
+| 3 | Tap "+" button to add garment | AddGarment form appears with back button | [ ] | |
+| 4 | Tap photo upload area, take 3+ photos | Photo preview grid shows thumbnails with ✕ remove | [ ] | |
+| 5 | Enter name and select category, tap "Save Garment" | Button shows "Saving…", then success screen | [ ] | |
+| 6 | Tap "Back to Catalog" | Catalog shows the new garment in the grid | [ ] | |
+| 7 | Navigate to "Today's Outfit" tab | Upload area with camera prompt appears | [ ] | |
+| 8 | Take/upload outfit photo | Preview shows, "Analyzing your outfit…" loading | [ ] | |
+| 9 | View prediction result | High confidence: match + Confirm; or medium/low: choice list | [ ] | |
+| 10 | Tap "Confirm" (or select a choice) | Button shows "Recording…", then "Wear recorded!" | [ ] | |
+| 11 | Navigate to Dashboard tab | Stats updated: totalGarments, totalWears incremented | [ ] | |
+| 12 | Verify Most Worn list | Confirmed garment appears with wear count ≥ 1 | [ ] | |
+
+#### Accessibility & UX Checks
+- [ ] All buttons have 44×44px minimum tap targets
+- [ ] Loading states visible during API calls (no blank screens)
+- [ ] Error states show descriptive message + retry/back option
+- [ ] Text is readable without zooming (≥16px body text)
+- [ ] Full flow completes in under 60 seconds of user interaction
+
+#### Result
+- **Overall:** [ ] Pass / [ ] Fail
+- **Blocking issues:** [List any, or "None"]
+- **Notes:** [Observations]

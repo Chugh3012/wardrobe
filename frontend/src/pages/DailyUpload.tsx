@@ -1,44 +1,56 @@
 import { useState } from 'react';
 import styles from './DailyUpload.module.css';
-
-/** Shape of a single prediction returned by POST /api/wear/predict. */
-interface Prediction {
-  garmentId: string;
-  garmentName: string;
-  confidence: number;
-}
-
-/** Response shape from POST /api/wear/predict. */
-interface PredictResponse {
-  predictionAuditId: string;
-  source: 'custom_vision' | 'embedding_fallback' | 'stub';
-  confidenceLevel: 'high' | 'medium' | 'low';
-  predictions: Prediction[];
-}
+import { getSasUrl, uploadToBlob, predictOutfit, confirmWear, type PredictResponse } from '../api';
 
 export default function DailyUpload() {
   const [result, setResult] = useState<PredictResponse | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
 
-  // Placeholder — actual API call will be wired when the backend URL is
-  // available at runtime.
-  const handlePredict = () => {
-    // Mock result for UI demonstration
-    setResult({
-      predictionAuditId: 'demo-audit',
-      source: 'stub',
-      confidenceLevel: 'high',
-      predictions: [
-        { garmentId: 'g1', garmentName: 'Blue Shirt', confidence: 0.95 },
-        { garmentId: 'g2', garmentName: 'Red Dress', confidence: 0.72 },
-        { garmentId: 'g3', garmentName: 'Black Jacket', confidence: 0.40 },
-      ],
-    });
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setResult(null);
     setConfirmed(false);
+    setPreview(URL.createObjectURL(file));
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const blobName = `outfits/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const sas = await getSasUrl(blobName, file.type || 'image/jpeg');
+      await uploadToBlob(sas.uploadUrl, file);
+      const prediction = await predictOutfit(sas.readUrl);
+      setResult(prediction);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to identify outfit.');
+    } finally {
+      setUploading(false);
+    }
   };
 
-  const handleConfirm = (_garmentId: string) => {
-    setConfirmed(true);
+  const handleConfirm = async (garmentId: string) => {
+    if (!result) return;
+    setConfirming(true);
+    setError(null);
+    try {
+      await confirmWear(result.predictionAuditId, garmentId, true);
+      setConfirmed(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to record wear.');
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const resetUpload = () => {
+    setResult(null);
+    setConfirmed(false);
+    setPreview(null);
+    setError(null);
   };
 
   return (
@@ -48,24 +60,47 @@ export default function DailyUpload() {
         <p className={styles.subtitle}>Upload a photo to identify your outfit</p>
       </header>
 
+      {/* ── Upload area ────────────────────────────────────────────────── */}
       <div className={styles.uploadArea}>
-        <label className={styles.photoUpload} aria-label="Upload today's outfit photo">
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className={styles.hiddenInput}
-            aria-label="Take or select outfit photo"
-            onChange={handlePredict}
-          />
-          <span className={styles.uploadIcon}>📷</span>
-          <span className={styles.uploadText}>Tap to take a photo</span>
-          <span className={styles.uploadHint}>or choose from gallery</span>
-        </label>
+        {preview ? (
+          <div className={styles.outfitPreview}>
+            <img src={preview} alt="Outfit preview" className={styles.outfitImage} />
+          </div>
+        ) : (
+          <label className={styles.photoUpload} aria-label="Upload today's outfit photo">
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className={styles.hiddenInput}
+              aria-label="Take or select outfit photo"
+              onChange={handleFileChange}
+            />
+            <span className={styles.uploadIcon}>📷</span>
+            <span className={styles.uploadText}>Tap to take a photo</span>
+            <span className={styles.uploadHint}>or choose from gallery</span>
+          </label>
+        )}
       </div>
 
+      {/* ── Loading state ──────────────────────────────────────────────── */}
+      {uploading && (
+        <div className={styles.loadingState}>
+          <p className={styles.loadingText}>Analyzing your outfit…</p>
+        </div>
+      )}
+
+      {/* ── Error state ────────────────────────────────────────────────── */}
+      {error && (
+        <div className={styles.errorState}>
+          <span className={styles.errorIcon}>⚠️</span>
+          <p className={styles.errorText}>{error}</p>
+          <button className={styles.retryButton} onClick={resetUpload}>Try Again</button>
+        </div>
+      )}
+
       {/* ── Prediction results ─────────────────────────────────────────── */}
-      {result && !confirmed && (
+      {result && !confirmed && !uploading && !error && (
         <div className={styles.predictionResults}>
           {result.confidenceLevel === 'high' ? (
             /* ── High confidence: single match + Confirm ──────────────── */
@@ -80,8 +115,9 @@ export default function DailyUpload() {
               <button
                 className={styles.confirmButton}
                 onClick={() => handleConfirm(result.predictions[0].garmentId)}
+                disabled={confirming}
               >
-                ✓ Confirm
+                {confirming ? 'Recording…' : '✓ Confirm'}
               </button>
               <button
                 className={styles.chooseOtherButton}
@@ -106,6 +142,7 @@ export default function DailyUpload() {
                     <button
                       className={styles.choiceButton}
                       onClick={() => handleConfirm(p.garmentId)}
+                      disabled={confirming}
                     >
                       <span className={styles.choiceName}>{p.garmentName}</span>
                       <span className={styles.choiceConfidence}>
@@ -125,6 +162,9 @@ export default function DailyUpload() {
         <div className={styles.confirmedState}>
           <span className={styles.confirmedIcon}>✅</span>
           <p className={styles.confirmedText}>Wear recorded! Great outfit today.</p>
+          <button className={styles.retryButton} onClick={resetUpload}>
+            Upload Another
+          </button>
         </div>
       )}
 
@@ -137,7 +177,7 @@ export default function DailyUpload() {
         </ul>
       </div>
 
-      {!result && (
+      {!result && !uploading && !error && (
         <div className={styles.predictionArea}>
           <p className={styles.predictionHint}>
             After uploading, we'll identify your outfit and ask you to confirm before recording a wear.

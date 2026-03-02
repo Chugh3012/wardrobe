@@ -78,3 +78,94 @@
 .ctaButton:active {
   transform: scale(0.97);
 }
+
+/* ── Garment grid ────────────────────────────────────────────────────────── */
+
+.garmentGrid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.garmentCard {
+  background: var(--color-surface);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.garmentThumb {
+  aspect-ratio: 1;
+  background: var(--color-primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.garmentImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.garmentPlaceholder {
+  font-size: 40px;
+}
+
+.garmentInfo {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.garmentName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.garmentMeta {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.loadMoreWrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+/* ── Loading / Error states ──────────────────────────────────────────────── */
+
+.loadingState {
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.loadingText {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+}
+
+.errorState {
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.errorIcon {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.errorText {
+  font-size: 16px;
+  color: var(--color-text);
+  margin-bottom: 16px;
+}

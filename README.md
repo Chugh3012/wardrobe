@@ -72,6 +72,14 @@ The main challenge is not storage/UI, it is **reliable cloth identification from
 - **Adaptive sampling** configured in `host.json` to manage ingestion costs while preserving exceptions and custom events.
 - **CSP hardened** — `connect-src` allows only the required App Insights ingestion domains.
 
+### Frontend → Backend Integration
+- **Typed API client** (`frontend/src/api.ts`) — All 6 backend endpoints are called through typed wrapper functions (`fetchGarments`, `createGarment`, `getSasUrl`, `uploadToBlob`, `predictOutfit`, `confirmWear`, `fetchStatsSummary`). Uses the SWA reverse proxy (`/api/*`) — no explicit backend URL needed.
+- **Catalog page** — Lists garments with thumbnail grid, pagination via Cosmos DB continuation tokens.
+- **Add Garment page** — Multi-photo upload to Blob via SAS URLs, garment creation via API, preview grid with remove support.
+- **Daily Upload page** — Photo upload to Blob → AI prediction → user confirmation → wear event recording. Supports high/medium/low confidence UX flows.
+- **Dashboard page** — Real-time stats from `GET /api/stats/summary`: total garments, total wears, most/least worn lists.
+- All pages implement loading, error (with retry), and empty states.
+
 ---
 
 ## 5) End-to-end phone-testable flow

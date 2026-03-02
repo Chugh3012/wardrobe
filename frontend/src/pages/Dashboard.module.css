@@ -78,3 +78,61 @@
   font-size: 13px;
   margin-top: 4px;
 }
+
+/* ── Loading / Error states ──────────────────────────────────────────────── */
+
+.loadingState {
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.loadingText {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+}
+
+.errorState {
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.errorIcon {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.errorText {
+  font-size: 16px;
+  color: var(--color-text);
+}
+
+/* ── Garment list (Most Worn / Least Worn) ───────────────────────────────── */
+
+.garmentList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.garmentListItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: var(--color-surface);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.garmentListName {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.garmentListMeta {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}

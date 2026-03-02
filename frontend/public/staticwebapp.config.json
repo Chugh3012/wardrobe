@@ -39,10 +39,10 @@
   },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/icons/*", "/manifest.json", "/sw.js", "/*.png", "/*.svg"]
+    "exclude": ["/api/*", "/icons/*", "/manifest.json", "/sw.js", "/*.png", "/*.svg"]
   },
   "globalHeaders": {
-    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.blob.core.windows.net; connect-src 'self' https://*.azurewebsites.net https://dc.services.visualstudio.com https://*.in.applicationinsights.azure.com;",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.blob.core.windows.net; connect-src 'self' https://*.blob.core.windows.net https://*.azurewebsites.net https://dc.services.visualstudio.com https://*.in.applicationinsights.azure.com;",
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "SAMEORIGIN",
