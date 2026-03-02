@@ -1,50 +1,34 @@
 /**
  * Authentication middleware for Azure Functions.
  *
- * Extracts the authenticated userId from the request.  Supports two modes:
+ * Extracts the authenticated userId from the `x-ms-client-principal-id`
+ * header injected by Azure Static Web Apps / Azure App Service EasyAuth.
  *
- * 1. **Token-based (Entra External ID / B2C)** — reads the standard
- *    `x-ms-client-principal-id` header injected by Azure Static Web Apps /
- *    Azure App Service EasyAuth when the user is authenticated.
- *
- * 2. **Body-based (backward compatibility)** — when the header is absent the
- *    function falls back to reading `userId` from the JSON body.  This keeps
- *    existing clients and tests working while the identity provider is being
- *    rolled out.
- *
- * Set the `REQUIRE_AUTH` environment variable to `"true"` to enforce
- * token-based auth and reject body-only requests with HTTP 401.
+ * **Security (S4):** Body-based userId fallback has been removed to prevent
+ * user impersonation.  The default for `REQUIRE_AUTH` is now `true` (secure
+ * by default).  Set `REQUIRE_AUTH=false` only for local development without
+ * EasyAuth — in that case callers must still supply the header manually.
  */
 
 import type { HttpRequest } from "@azure/functions";
 
-/** Returns true when strict authentication enforcement is enabled. */
+/** Returns true when strict authentication enforcement is enabled (default). */
 export function isAuthRequired(): boolean {
-  return process.env["REQUIRE_AUTH"] === "true";
+  return process.env["REQUIRE_AUTH"] !== "false";
 }
 
 /**
  * Extracts the userId from the request.
  *
- * Resolution order:
- * 1. `x-ms-client-principal-id` header (set by Azure EasyAuth / SWA auth).
- * 2. `userId` field in the parsed JSON body (backward compat).
- * 3. `null` when neither source provides a userId.
+ * Only the `x-ms-client-principal-id` header (set by Azure EasyAuth / SWA
+ * auth) is accepted.  Returns `null` when the header is absent or empty.
  */
 export function extractUserId(
   request: HttpRequest,
-  parsedBody?: Record<string, unknown>
 ): string | null {
-  // Prefer the EasyAuth header — it is tamper-proof when served through Azure.
   const headerValue = request.headers.get("x-ms-client-principal-id");
   if (headerValue && headerValue.trim()) {
     return headerValue.trim();
-  }
-
-  // Fallback to body-supplied userId (backward compat / local dev).
-  if (parsedBody && typeof parsedBody["userId"] === "string") {
-    const bodyUserId = (parsedBody["userId"] as string).trim();
-    if (bodyUserId) return bodyUserId;
   }
 
   return null;

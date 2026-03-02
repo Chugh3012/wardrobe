@@ -30,13 +30,10 @@ vi.mock("@azure/identity", () => ({
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function makeRequest(userId?: string): HttpRequest {
-  const url = userId
-    ? `http://localhost:7071/api/stats/summary?userId=${encodeURIComponent(userId)}`
-    : "http://localhost:7071/api/stats/summary";
-
   return new HttpRequest({
     method: "GET",
-    url,
+    url: "http://localhost:7071/api/stats/summary",
+    ...(userId ? { headers: { "x-ms-client-principal-id": userId } } : {}),
   });
 }
 
@@ -239,20 +236,20 @@ describe("GET /api/stats/summary", () => {
 
   // ── Validation ────────────────────────────────────────────────────────────
 
-  it("returns 400 when userId query param is missing", async () => {
+  it("returns 401 when auth header is missing", async () => {
     const { getStatsSummary } = await import("./getStatsSummary.js");
     const res = await getStatsSummary(makeRequest(), makeContext());
 
-    expect(res.status).toBe(400);
-    expect((res.jsonBody as { error: string }).error).toContain("userId");
+    expect(res.status).toBe(401);
+    expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
   });
 
-  it("returns 400 when userId query param is empty", async () => {
+  it("returns 401 when auth header is empty", async () => {
     const { getStatsSummary } = await import("./getStatsSummary.js");
     const res = await getStatsSummary(makeRequest("  "), makeContext());
 
-    expect(res.status).toBe(400);
-    expect((res.jsonBody as { error: string }).error).toContain("userId");
+    expect(res.status).toBe(401);
+    expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
   });
 
   // ── Error handling ────────────────────────────────────────────────────────

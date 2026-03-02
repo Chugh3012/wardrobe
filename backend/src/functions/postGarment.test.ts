@@ -28,11 +28,14 @@ vi.mock("@azure/identity", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function makeRequest(body: unknown): HttpRequest {
+function makeRequest(body: unknown, userId?: string): HttpRequest {
   return new HttpRequest({
     method: "POST",
     url: "http://localhost:7071/api/garments",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(userId ? { "x-ms-client-principal-id": userId } : {}),
+    },
     body: { string: JSON.stringify(body) },
   });
 }
@@ -43,7 +46,6 @@ function makeContext(): InvocationContext {
 
 function validBody(overrides: Record<string, unknown> = {}) {
   return {
-    userId: "user-1",
     name: "Blue Shirt",
     category: "top",
     catalogImageUrls: [
@@ -89,7 +91,7 @@ describe("POST /api/garments", () => {
     mockCreate.mockResolvedValue({ resource: garmentDoc });
 
     const { postGarment } = await import("./postGarment.js");
-    const res = await postGarment(makeRequest(validBody()), makeContext());
+    const res = await postGarment(makeRequest(validBody(), "user-1"), makeContext());
 
     expect(res.status).toBe(201);
     expect(res.jsonBody).toEqual(garmentDoc);
@@ -113,30 +115,23 @@ describe("POST /api/garments", () => {
 
   // ── Missing required fields ───────────────────────────────────────────────
 
-  it("returns 400 when userId is missing", async () => {
+  it("returns 401 when auth header is missing", async () => {
     const { postGarment } = await import("./postGarment.js");
-    const res = await postGarment(makeRequest(validBody({ userId: "" })), makeContext());
-    expect(res.status).toBe(400);
-    expect((res.jsonBody as { error: string }).error).toContain("userId");
-  });
-
-  it("returns 400 when userId is not a string", async () => {
-    const { postGarment } = await import("./postGarment.js");
-    const res = await postGarment(makeRequest(validBody({ userId: 42 })), makeContext());
-    expect(res.status).toBe(400);
-    expect((res.jsonBody as { error: string }).error).toContain("userId");
+    const res = await postGarment(makeRequest(validBody()), makeContext());
+    expect(res.status).toBe(401);
+    expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
   });
 
   it("returns 400 when name is missing", async () => {
     const { postGarment } = await import("./postGarment.js");
-    const res = await postGarment(makeRequest(validBody({ name: "" })), makeContext());
+    const res = await postGarment(makeRequest(validBody({ name: "" }), "user-1"), makeContext());
     expect(res.status).toBe(400);
     expect((res.jsonBody as { error: string }).error).toContain("name");
   });
 
   it("returns 400 when category is missing", async () => {
     const { postGarment } = await import("./postGarment.js");
-    const res = await postGarment(makeRequest(validBody({ category: "" })), makeContext());
+    const res = await postGarment(makeRequest(validBody({ category: "" }), "user-1"), makeContext());
     expect(res.status).toBe(400);
     expect((res.jsonBody as { error: string }).error).toContain("category");
   });
@@ -146,7 +141,7 @@ describe("POST /api/garments", () => {
   it("returns 400 when catalogImageUrls is not an array", async () => {
     const { postGarment } = await import("./postGarment.js");
     const res = await postGarment(
-      makeRequest(validBody({ catalogImageUrls: "not-an-array" })),
+      makeRequest(validBody({ catalogImageUrls: "not-an-array" }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -156,7 +151,7 @@ describe("POST /api/garments", () => {
   it("returns 400 when catalogImageUrls has fewer than 3 items", async () => {
     const { postGarment } = await import("./postGarment.js");
     const res = await postGarment(
-      makeRequest(validBody({ catalogImageUrls: ["url1", "url2"] })),
+      makeRequest(validBody({ catalogImageUrls: ["url1", "url2"] }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -167,7 +162,7 @@ describe("POST /api/garments", () => {
     const { postGarment } = await import("./postGarment.js");
     const urls = Array.from({ length: 9 }, (_, i) => `https://storageaccount.blob.core.windows.net/images/img${i}.jpg`);
     const res = await postGarment(
-      makeRequest(validBody({ catalogImageUrls: urls })),
+      makeRequest(validBody({ catalogImageUrls: urls }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -177,7 +172,7 @@ describe("POST /api/garments", () => {
   it("returns 400 when catalogImageUrls contains a non-string entry", async () => {
     const { postGarment } = await import("./postGarment.js");
     const res = await postGarment(
-      makeRequest(validBody({ catalogImageUrls: ["url1", 42, "url3"] })),
+      makeRequest(validBody({ catalogImageUrls: ["url1", 42, "url3"] }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -187,7 +182,7 @@ describe("POST /api/garments", () => {
   it("returns 400 when catalogImageUrls contains an empty string", async () => {
     const { postGarment } = await import("./postGarment.js");
     const res = await postGarment(
-      makeRequest(validBody({ catalogImageUrls: ["url1", "  ", "url3"] })),
+      makeRequest(validBody({ catalogImageUrls: ["url1", "  ", "url3"] }), "user-1"),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -200,7 +195,7 @@ describe("POST /api/garments", () => {
     mockCreate.mockResolvedValue({ resource: { id: "g1" } });
     const { postGarment } = await import("./postGarment.js");
     const urls = Array.from({ length: 3 }, (_, i) => `https://storageaccount.blob.core.windows.net/images/img${i}.jpg`);
-    const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls })), makeContext());
+    const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls }), "user-1"), makeContext());
     expect(res.status).toBe(201);
   });
 
@@ -208,7 +203,7 @@ describe("POST /api/garments", () => {
     mockCreate.mockResolvedValue({ resource: { id: "g1" } });
     const { postGarment } = await import("./postGarment.js");
     const urls = Array.from({ length: 8 }, (_, i) => `https://storageaccount.blob.core.windows.net/images/img${i}.jpg`);
-    const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls })), makeContext());
+    const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls }), "user-1"), makeContext());
     expect(res.status).toBe(201);
   });
 
@@ -217,7 +212,7 @@ describe("POST /api/garments", () => {
   it("returns 500 when createGarment throws", async () => {
     mockCreate.mockRejectedValue(new Error("Cosmos DB unavailable"));
     const { postGarment } = await import("./postGarment.js");
-    const res = await postGarment(makeRequest(validBody()), makeContext());
+    const res = await postGarment(makeRequest(validBody(), "user-1"), makeContext());
     expect(res.status).toBe(500);
     expect((res.jsonBody as { error: string }).error).toContain("Failed to create garment");
   });
@@ -231,7 +226,7 @@ describe("POST /api/garments", () => {
       "https://storageaccount.blob.core.windows.net/images/img2.jpg",
       "https://storageaccount.blob.core.windows.net/images/img3.jpg",
     ];
-    const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls })), makeContext());
+    const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls }), "user-1"), makeContext());
     expect(res.status).toBe(400);
     expect((res.jsonBody as { error: string }).error).toContain("allowed domain");
   });
@@ -243,7 +238,7 @@ describe("POST /api/garments", () => {
       "https://storageaccount.blob.core.windows.net/images/img2.jpg",
       "https://storageaccount.blob.core.windows.net/images/img3.jpg",
     ];
-    const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls })), makeContext());
+    const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls }), "user-1"), makeContext());
     expect(res.status).toBe(400);
     expect((res.jsonBody as { error: string }).error).toContain("allowed domain");
   });
@@ -255,7 +250,7 @@ describe("POST /api/garments", () => {
       "https://storageaccount.blob.core.windows.net/images/img2.jpg",
       "https://storageaccount.blob.core.windows.net/images/img3.jpg",
     ];
-    const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls })), makeContext());
+    const res = await postGarment(makeRequest(validBody({ catalogImageUrls: urls }), "user-1"), makeContext());
     expect(res.status).toBe(400);
     expect((res.jsonBody as { error: string }).error).toContain("allowed domain");
   });

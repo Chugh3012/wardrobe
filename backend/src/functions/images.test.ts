@@ -58,18 +58,11 @@ describe("POST /api/images/sas-url", () => {
 
   // ── S1: Authentication ──────────────────────────────────────────────────
 
-  it("returns 400 when userId is missing", async () => {
-    const { generateSasUrl } = await import("./images.js");
-    const res = await generateSasUrl(makeRequest({ blobName: "test.jpg" }), makeContext());
-    expect(res.status).toBe(400);
-    expect((res.jsonBody as { error: string }).error).toContain("userId");
-  });
-
-  it("returns 401 when REQUIRE_AUTH is enabled and no auth header is present", async () => {
-    vi.stubEnv("REQUIRE_AUTH", "true");
+  it("returns 401 when auth header is missing", async () => {
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(makeRequest({ blobName: "test.jpg" }), makeContext());
     expect(res.status).toBe(401);
+    expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
   });
 
   it("accepts userId from x-ms-client-principal-id header", async () => {
@@ -81,21 +74,12 @@ describe("POST /api/images/sas-url", () => {
     expect(res.status).toBe(200);
   });
 
-  it("accepts userId from body (backward compat)", async () => {
-    const { generateSasUrl } = await import("./images.js");
-    const res = await generateSasUrl(
-      makeRequest({ blobName: "test.jpg", userId: "user-1" }),
-      makeContext()
-    );
-    expect(res.status).toBe(200);
-  });
-
   // ── S2: Blob-name validation & per-user scoping ─────────────────────────
 
   it("returns 400 when blobName contains '..' path traversal", async () => {
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "../../secret/file.jpg", userId: "user-1" }),
+      makeRequest({ blobName: "../../secret/file.jpg" }, { "x-ms-client-principal-id": "user-1" }),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -105,7 +89,7 @@ describe("POST /api/images/sas-url", () => {
   it("returns 400 when blobName contains invalid characters", async () => {
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "blob name with spaces.jpg", userId: "user-1" }),
+      makeRequest({ blobName: "blob name with spaces.jpg" }, { "x-ms-client-principal-id": "user-1" }),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -116,7 +100,7 @@ describe("POST /api/images/sas-url", () => {
     const { generateSasUrl } = await import("./images.js");
     const longName = "a".repeat(257) + ".jpg";
     const res = await generateSasUrl(
-      makeRequest({ blobName: longName, userId: "user-1" }),
+      makeRequest({ blobName: longName }, { "x-ms-client-principal-id": "user-1" }),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -126,7 +110,7 @@ describe("POST /api/images/sas-url", () => {
   it("prefixes blobName with userId for per-user scoping", async () => {
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "garments/test.jpg", userId: "user-1" }),
+      makeRequest({ blobName: "garments/test.jpg" }, { "x-ms-client-principal-id": "user-1" }),
       makeContext()
     );
     expect(res.status).toBe(200);
@@ -140,7 +124,7 @@ describe("POST /api/images/sas-url", () => {
     vi.stubEnv("BLOB_ACCOUNT_NAME", "");
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "test.jpg", userId: "user-1" }),
+      makeRequest({ blobName: "test.jpg" }, { "x-ms-client-principal-id": "user-1" }),
       makeContext()
     );
     expect(res.status).toBe(503);
@@ -148,20 +132,20 @@ describe("POST /api/images/sas-url", () => {
 
   it("returns 400 when blobName is missing", async () => {
     const { generateSasUrl } = await import("./images.js");
-    const res = await generateSasUrl(makeRequest({ userId: "user-1" }), makeContext());
+    const res = await generateSasUrl(makeRequest({}, { "x-ms-client-principal-id": "user-1" }), makeContext());
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when blobName is not a string", async () => {
     const { generateSasUrl } = await import("./images.js");
-    const res = await generateSasUrl(makeRequest({ blobName: 42, userId: "user-1" }), makeContext());
+    const res = await generateSasUrl(makeRequest({ blobName: 42 }, { "x-ms-client-principal-id": "user-1" }), makeContext());
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when blobName is an empty string", async () => {
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "   ", userId: "user-1" }),
+      makeRequest({ blobName: "   " }, { "x-ms-client-principal-id": "user-1" }),
       makeContext()
     );
     expect(res.status).toBe(400);
@@ -182,7 +166,7 @@ describe("POST /api/images/sas-url", () => {
   it("returns 200 with uploadUrl and readUrl on success", async () => {
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "garments/test.jpg", userId: "user-1" }),
+      makeRequest({ blobName: "garments/test.jpg" }, { "x-ms-client-principal-id": "user-1" }),
       makeContext()
     );
 
@@ -200,7 +184,7 @@ describe("POST /api/images/sas-url", () => {
     mockGetUserDelegationKey.mockRejectedValue(new Error("Auth failed"));
     const { generateSasUrl } = await import("./images.js");
     const res = await generateSasUrl(
-      makeRequest({ blobName: "test.jpg", userId: "user-1" }),
+      makeRequest({ blobName: "test.jpg" }, { "x-ms-client-principal-id": "user-1" }),
       makeContext()
     );
     expect(res.status).toBe(500);
