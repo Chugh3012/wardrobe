@@ -16,6 +16,9 @@ param alertEmailAddresses array = []
 @description('Short environment name used in resource names.')
 param environmentName string
 
+@description('Current UTC timestamp — used to derive the budget start date. Do not override manually.')
+param now string = utcNow('yyyy-MM')
+
 // ── Budget ────────────────────────────────────────────────────────────────────
 
 resource budget 'Microsoft.Consumption/budgets@2023-11-01' = {
@@ -26,7 +29,7 @@ resource budget 'Microsoft.Consumption/budgets@2023-11-01' = {
     timeGrain: 'Monthly'
     timePeriod: {
       // Start from the first of the current month; Azure auto-renews monthly.
-      startDate: '${utcNow('yyyy-MM')}-01'
+      startDate: '${now}-01'
     }
     notifications: {
       actual80Pct: {
