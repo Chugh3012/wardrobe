@@ -292,7 +292,7 @@ resource authSettingsV2 'Microsoft.Web/sites/config@2023-12-01' = if (!empty(aad
         enabled: true
         registration: {
           clientId: aadClientId
-          openIdIssuer: 'https://login.microsoftonline.com/${aadTenantId}/v2.0'
+          openIdIssuer: '${environment().authentication.loginEndpoint}${aadTenantId}/v2.0'
         }
         validation: {
           allowedAudiences: [
