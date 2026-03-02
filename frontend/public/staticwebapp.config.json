@@ -11,10 +11,6 @@
   },
   "routes": [
     {
-      "route": "/api/*",
-      "allowedRoles": ["authenticated"]
-    },
-    {
       "route": "/login",
       "rewrite": "/.auth/login/aad"
     },
@@ -29,6 +25,10 @@
     {
       "route": "/.auth/login/twitter",
       "statusCode": 404
+    },
+    {
+      "route": "/*",
+      "allowedRoles": ["authenticated"]
     }
   ],
   "responseOverrides": {
