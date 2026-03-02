@@ -333,7 +333,7 @@ Configure end-to-end authentication and secrets management. Users sign in via Mi
 
 ### Issue #13.5: Security Hardening & Implementation Gap Remediation
 
-- [ ] **Status:** Open
+- [x] **Status:** Done
 
 **Description:**
 A full audit of Issues #0–#13 revealed security vulnerabilities and implementation gaps that must be addressed before the app is exposed to real users. This issue captures every gap found, prioritised by severity. Items marked 🔴 are exploitable in the current codebase; items marked 🟡 are defence-in-depth improvements; items marked 🟢 are functional gaps (not security) that were accepted in earlier issues but still need finishing.
@@ -466,20 +466,20 @@ Issue #13 acceptance criteria: "All secrets are stored in Key Vault." The Bicep 
 
 #### Summary — Issue #13.5 Checklist
 
-| # | Severity | Gap | Covered by future issue? |
-|---|----------|-----|--------------------------|
-| S1 | 🔴 Critical | SAS endpoint has no auth | No |
-| S2 | 🔴 Critical | Blob path traversal | No |
-| S3 | 🔴 Critical | IDOR on wear/confirm | No |
-| S4 | 🔴 Critical | Auth default is insecure | No |
-| S5 | 🔴 Critical | Functions directly accessible | No |
-| S6 | 🔴 Critical | Cosmos local auth enabled | No |
-| S7 | 🔴 Critical | SSRF via image URLs | No |
-| S8 | 🟡 High | Missing CSP header | No |
-| S9 | 🟡 High | No rate limiting | No |
-| S10 | 🟡 High | AI services publicly accessible | No |
-| S11 | 🟡 High | CORS allows localhost in prod | No |
-| S12 | 🟡 High | No payload size limits | No |
+| # | Severity | Gap | Status |
+|---|----------|-----|--------|
+| S1 | 🔴 Critical | SAS endpoint has no auth | ✅ `extractUserId` + 401 guard in `images.ts`; 13 unit tests |
+| S2 | 🔴 Critical | Blob path traversal | ✅ Length check, `..` rejection, safe-char regex, `{userId}/` prefix in `images.ts` |
+| S3 | 🔴 Critical | IDOR on wear/confirm | ✅ `readGarment(confirmedGarmentId, userId)` ownership check in `postWearConfirm.ts` |
+| S4 | 🔴 Critical | Auth default is insecure | ✅ `isAuthRequired()` defaults `true`; body fallback removed in `authMiddleware.ts`; 9 tests |
+| S5 | 🔴 Critical | Functions directly accessible | ✅ `REQUIRE_AUTH: 'true'` in `functions.bicep`; header-only auth enforcement |
+| S6 | 🔴 Critical | Cosmos local auth enabled | ✅ `disableLocalAuth: true` in `cosmos-db.bicep` |
+| S7 | 🔴 Critical | SSRF via image URLs | ✅ `urlValidator.ts`: HTTPS-only, `*.blob.core.windows.net` allowlist, private-IP rejection; 15 tests |
+| S8 | 🟡 High | Missing CSP header | ✅ `Content-Security-Policy` in `staticwebapp.config.json` |
+| S9 | 🟡 High | No rate limiting | ✅ `maxConcurrentRequests: 100`, `maxOutstandingRequests: 200` in `host.json` |
+| S10 | 🟡 High | AI services publicly accessible | ✅ `publicNetworkAccess: 'Disabled'` on all 3 AI services in `ai-services.bicep` |
+| S11 | 🟡 High | CORS allows localhost in prod | ✅ `includeCorsLocalhost` param (default `false`); only `dev` env enables it |
+| S12 | 🟡 High | No payload size limits | ✅ `maxRequestBytes: 5 MB` in `host.json` + per-field length limits in all handlers |
 | S13 | 🟡 High | Storage key in plain-text app settings | ✅ Identity-based `AzureWebJobsStorage__accountName` + RBAC |
 | S14 | 🟡 High | No secret rotation | ✅ Documented 90-day rotation schedule + `enablePurgeProtection` |
 | F1 | 🟢 Functional | Frontend is all stubs | Partially by #15 |
@@ -492,8 +492,8 @@ Issue #13 acceptance criteria: "All secrets are stored in Key Vault." The Bicep 
 | F8 | 🟢 Functional | No max-length on string inputs | No |
 
 **Acceptance Criteria:**
-- [ ] All 🔴 Critical items (S1–S7) are fixed and verified by unit tests.
-- [ ] All 🟡 High items (S8–S14) are addressed or documented as accepted risk with a mitigation timeline.
+- [x] All 🔴 Critical items (S1–S7) are fixed and verified by unit tests.
+- [x] All 🟡 High items (S8–S14) are addressed or documented as accepted risk with a mitigation timeline.
 - [ ] 🟢 Functional items are triaged — fix now or defer to the appropriate open issue with a cross-reference.
 - [ ] A follow-up security test pass confirms no regressions.
 
