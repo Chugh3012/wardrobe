@@ -109,6 +109,12 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           name: 'AzureWebJobsStorage__accountName'
           value: storageAccount.name
         }
+        // Consumption plan requires a connection string for the content file share.
+        // Identity-based content share auth is not supported on Consumption (Y1) plans.
+        {
+          name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+        }
         {
           name: 'WEBSITE_CONTENTSHARE'
           value: 'func-wardrobe-${environmentName}'

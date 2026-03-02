@@ -56,7 +56,7 @@ Provision the shared Azure resource group and the Static Web App resource using 
 
 **Security requirements:**
 - GitHub Actions authenticates to Azure via **OIDC federated credentials** only. No `AZURE_CLIENT_SECRET` is stored anywhere; only the non-secret triple `AZURE_CLIENT_ID` / `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` is stored in GitHub Actions secrets.
-- The service principal used by CI is granted **only the minimum RBAC roles needed** (e.g. `Contributor` scoped to the wardrobe resource group, not the whole subscription).
+- The service principal used by CI is granted **only the minimum RBAC roles needed** (e.g. `Owner` scoped to the wardrobe resource group, not the whole subscription — `Owner` is required because the Bicep templates create RBAC role assignments).
 - All future secret values (connection strings, API keys) must be placed in Azure Key Vault — never in Bicep parameter files or GitHub secrets. Bicep modules reference Key Vault via `existing` resource + `getSecret()`.
 - Bicep templates contain **no hardcoded subscription IDs, tenant IDs, or secret values**.
 - Resource tags (`project`, `environment`, `managedBy`) are enforced on every resource so cost and ownership are always traceable.
@@ -73,7 +73,7 @@ Provision the shared Azure resource group and the Static Web App resource using 
 **One-time manual setup (documented in `infra/README.md`):**
 1. Create an Entra app registration (service principal) for GitHub Actions.
 2. Add a **federated credential** on that app targeting `repo:Chugh3012/wardrobe:ref:refs/heads/main` (and optionally PRs).
-3. Grant the service principal `Contributor` on the resource group (or `Owner` if RBAC assignments are needed).
+3. Grant the service principal `Owner` on the resource group (required because Bicep templates create RBAC role assignments for managed identities).
 4. Store `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` as GitHub Actions secrets (these are non-secret identifiers, but kept in secrets for flexibility).
 
 **Validation:**
