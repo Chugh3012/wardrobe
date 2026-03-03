@@ -93,7 +93,7 @@ export default function AddGarment({ onBack }: AddGarmentProps) {
       <form className={styles.form} onSubmit={handleSubmit}>
         <div className={styles.photoSection}>
           <p className={styles.photoHint}>
-            📸 Add 3–8 photos for best recognition. Use good lighting, plain background, full view.
+            📸 Add 1–8 photos for best recognition. Use good lighting, plain background, full view.
           </p>
 
           {previews.length > 0 && (

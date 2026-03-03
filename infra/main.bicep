@@ -142,6 +142,8 @@ module blobStorage 'modules/blob-storage.bicep' = {
     storageAccountName: blobStorageAccountName
     containerName: blobContainerName
     functionAppPrincipalId: functions.outputs.functionAppPrincipalId
+    staticWebAppHostname: swa.outputs.defaultHostname
+    includeCorsLocalhost: environmentName == 'dev'
   }
 }
 
