@@ -5,6 +5,7 @@ import { resetClient } from "./cosmosClient.js";
 
 const mockCreate = vi.fn();
 const mockRead = vi.fn();
+const mockDelete = vi.fn();
 const mockFetchAll = vi.fn();
 const mockQuery = vi.fn(() => ({ fetchAll: mockFetchAll }));
 
@@ -19,6 +20,7 @@ vi.mock("@azure/cosmos", () => ({
           },
           item: () => ({
             read: mockRead,
+            delete: mockDelete,
           }),
         }),
       }),
@@ -140,5 +142,23 @@ describe("wearEventService", () => {
     const result = await getWearEventAggregations("user-1");
 
     expect(result).toEqual([]);
+  });
+
+  // ── deleteWearEvent ─────────────────────────────────────────────────────────
+
+  it("deleteWearEvent calls Cosmos DB delete", async () => {
+    mockDelete.mockResolvedValue({});
+
+    const { deleteWearEvent } = await import("./wearEventService.js");
+    await deleteWearEvent("evt-1", "user-1");
+
+    expect(mockDelete).toHaveBeenCalledOnce();
+  });
+
+  it("deleteWearEvent re-throws errors", async () => {
+    mockDelete.mockRejectedValue(new Error("Delete failed"));
+
+    const { deleteWearEvent } = await import("./wearEventService.js");
+    await expect(deleteWearEvent("evt-1", "user-1")).rejects.toThrow("Delete failed");
   });
 });

@@ -243,6 +243,31 @@ export async function confirmWear(
   });
 }
 
+/**
+ * DELETE /api/wear/events/{id} — remove a previously recorded outfit (wear event).
+ */
+export async function deleteWearEvent(id: string): Promise<void> {
+  const token = await getAccessToken();
+  const url = `${apiBaseUrl}/api/wear/events/${encodeURIComponent(id)}`;
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const ct = res.headers.get('content-type') ?? '';
+      if (ct.includes('application/json')) {
+        const body = await res.json();
+        if (body?.error) message = body.error;
+      }
+    } catch {
+      // body wasn't JSON — keep default message
+    }
+    throw new Error(message);
+  }
+}
+
 // ── Stats ────────────────────────────────────────────────────────────────────
 
 /**

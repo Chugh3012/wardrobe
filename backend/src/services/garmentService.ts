@@ -65,6 +65,27 @@ export async function incrementWearCount(id: string, userId: string): Promise<Ga
 }
 
 /**
+ * Decrements the wearCount on a Garment by 1 (minimum 0) and updates the updatedAt timestamp.
+ */
+export async function decrementWearCount(id: string, userId: string): Promise<Garment> {
+  const container = getContainer();
+  const { resource: existing } = await container.item(id, userId).read<Garment>();
+  if (!existing) {
+    throw new Error(`Garment ${id} not found for user ${userId}.`);
+  }
+  const updated: Garment = {
+    ...existing,
+    wearCount: Math.max(existing.wearCount - 1, 0),
+    updatedAt: new Date().toISOString(),
+  };
+  const { resource } = await container.item(id, userId).replace<Garment>(updated);
+  if (!resource) {
+    throw new Error("Cosmos DB replace returned no resource.");
+  }
+  return resource;
+}
+
+/**
  * Lists all garments for a given userId (unpaginated).
  * Used internally by endpoints that need the full set (e.g. stats, predict).
  */
