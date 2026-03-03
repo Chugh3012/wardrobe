@@ -63,7 +63,7 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01'
       corsRules: [
         {
           allowedOrigins: union(
-            [ 'https://${staticWebAppHostname}' ]
+            [ 'https://${staticWebAppHostname}' ],
             includeCorsLocalhost ? [ 'http://localhost:5173' ] : []
           )
           allowedMethods: [ 'PUT', 'GET', 'HEAD', 'OPTIONS' ]
