@@ -55,10 +55,7 @@ export default function DailyUpload() {
     setError(null);
     try {
       await deleteWearEvent(wearEventId);
-      setWearEventId(null);
-      setConfirmed(false);
-      setResult(null);
-      setPreview(null);
+      resetUpload();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove outfit.');
     } finally {
