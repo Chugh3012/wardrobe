@@ -74,10 +74,10 @@ The main challenge is not storage/UI, it is **reliable cloth identification from
 - **CSP hardened** — `connect-src` allows only the required App Insights ingestion domains.
 
 ### Frontend → Backend Integration
-- **Typed API client** (`frontend/src/api.ts`) — All 6 backend endpoints are called through typed wrapper functions (`fetchGarments`, `createGarment`, `getSasUrl`, `uploadToBlob`, `predictOutfit`, `confirmWear`, `fetchStatsSummary`). Uses a shared `apiFetch<T>()` generic that acquires MSAL Bearer tokens via `acquireTokenSilent()` and calls the standalone Function App (`func-wardrobe-dev.azurewebsites.net/api/*`) directly with `Authorization: Bearer <token>` headers.
+- **Typed API client** (`frontend/src/api.ts`) — All 7 backend endpoints are called through typed wrapper functions (`fetchGarments`, `createGarment`, `getSasUrl`, `uploadToBlob`, `predictOutfit`, `confirmWear`, `deleteWearEvent`, `fetchStatsSummary`). Uses a shared `apiFetch<T>()` generic that acquires MSAL Bearer tokens via `acquireTokenSilent()` and calls the standalone Function App (`func-wardrobe-dev.azurewebsites.net/api/*`) directly with `Authorization: Bearer <token>` headers.
 - **Catalog page** — Lists garments with thumbnail grid, pagination via Cosmos DB continuation tokens.
 - **Add Garment page** — Multi-photo upload to Blob via SAS URLs, garment creation via API, preview grid with remove support.
-- **Daily Upload page** — Photo upload to Blob → AI prediction → user confirmation → wear event recording. Supports high/medium/low confidence UX flows.
+- **Daily Upload page** — Photo upload to Blob → AI prediction → user confirmation → wear event recording. Supports high/medium/low confidence UX flows. After confirming, users can remove the outfit to undo the wear event.
 - **Dashboard page** — Real-time stats from `GET /api/stats/summary`: total garments, total wears, most/least worn lists.
 - All pages implement loading, error (with retry), and empty states.
 
@@ -146,6 +146,7 @@ This flow is fully testable on phone via browser without native app development.
 - `GET /garments`
 - `POST /wear/predict` (upload daily image, return top matches)
 - `POST /wear/confirm` (confirm/correct match and increment count)
+- `DELETE /wear/events/{id}` (remove a recorded outfit and decrement wear count)
 - `GET /stats/summary`
 
 ---

@@ -41,6 +41,14 @@ export async function readWearEvent(id: string, userId: string): Promise<WearEve
 }
 
 /**
+ * Deletes a WearEvent by id and userId (partition key).
+ * Throws if the document does not exist.
+ */
+export async function deleteWearEvent(id: string, userId: string): Promise<void> {
+  await getContainer().item(id, userId).delete();
+}
+
+/**
  * Lists all wear events for a given userId.
  */
 export async function listWearEvents(userId: string): Promise<WearEvent[]> {

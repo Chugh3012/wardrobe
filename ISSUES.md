@@ -926,6 +926,27 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 
 ---
 
+### Issue #21: Implement `DELETE /wear/events/{id}` — Remove Outfit
+
+- [x] **Status:** Done
+
+**Description:**
+Add the ability to remove a previously recorded outfit (wear event). When a wear event is deleted, the associated garment's wearCount is decremented. The backend endpoint uses authentication and validates that the wear event belongs to the requesting user. The frontend exposes a "Remove This Outfit" button on the Daily Upload page after a wear has been confirmed.
+
+**Acceptance Criteria:**
+- `DELETE /wear/events/{id}` deletes the specified WearEvent for the authenticated user.
+- The garment's `wearCount` is decremented by 1 (floored at 0).
+- Returns HTTP 204 on successful deletion.
+- Returns HTTP 404 if the WearEvent does not exist or belongs to another user.
+- Returns HTTP 401 when no valid auth header is present.
+- Frontend shows a "Remove This Outfit" button after confirming a wear.
+- Removing an outfit resets the Daily Upload page to its initial state.
+
+**Phone-Test Validation:**
+> On a phone, upload an outfit photo and confirm the wear. Verify the "Remove This Outfit" button appears. Tap it and verify the wear is removed, the page resets, and the garment's wear count decreases.
+
+---
+
 ## Issue Summary
 
 | Issue | Title | Phase | Status |
@@ -957,3 +978,4 @@ Add outfit recommendation features to the dashboard based on historical wear pat
 | #18 | Monthly Insights ("Not Worn in 60 Days") | Phase 2 | [ ] Open |
 | #19 | Cost Optimization & Archival Policy | Phase 3 | [ ] Open |
 | #20 | Recommendation Features | Phase 3 | [ ] Open |
+| #21 | Implement `DELETE /wear/events/{id}` — Remove Outfit | MVP | [x] Done |

@@ -316,3 +316,29 @@
   min-height: 40px;
   cursor: pointer;
 }
+
+.removeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border: 1px solid var(--color-text-secondary);
+  border-radius: 10px;
+  min-height: 36px;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: opacity 0.15s ease;
+}
+
+.removeButton:active {
+  opacity: 0.7;
+}
+
+.removeButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

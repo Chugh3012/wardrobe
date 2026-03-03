@@ -5,6 +5,7 @@ import { resetClient } from "./cosmosClient.js";
 
 const mockCreate = vi.fn();
 const mockRead = vi.fn();
+const mockReplace = vi.fn();
 const mockFetchAll = vi.fn();
 const mockFetchNext = vi.fn();
 const mockQuery = vi.fn(() => ({ fetchAll: mockFetchAll, fetchNext: mockFetchNext }));
@@ -20,6 +21,7 @@ vi.mock("@azure/cosmos", () => ({
           },
           item: () => ({
             read: mockRead,
+            replace: mockReplace,
           }),
         }),
       }),
@@ -174,5 +176,49 @@ describe("garmentService", () => {
       expect.anything(),
       expect.objectContaining({ continuationToken: "my-token" }),
     );
+  });
+
+  // ── decrementWearCount ────────────────────────────────────────────────────
+
+  it("decrementWearCount decrements wearCount by 1", async () => {
+    const garment = {
+      id: "g1", userId: "user-1", name: "Blue Shirt", category: "top",
+      catalogImageUrls: ["https://example.com/img.jpg"],
+      wearCount: 3, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    mockRead.mockResolvedValue({ resource: garment });
+    mockReplace.mockResolvedValue({ resource: { ...garment, wearCount: 2 } });
+
+    const { decrementWearCount } = await import("./garmentService.js");
+    const result = await decrementWearCount("g1", "user-1");
+
+    expect(result.wearCount).toBe(2);
+    expect(mockReplace).toHaveBeenCalledOnce();
+    const replaced = mockReplace.mock.calls[0][0];
+    expect(replaced.wearCount).toBe(2);
+  });
+
+  it("decrementWearCount floors wearCount at 0", async () => {
+    const garment = {
+      id: "g1", userId: "user-1", name: "Blue Shirt", category: "top",
+      catalogImageUrls: ["https://example.com/img.jpg"],
+      wearCount: 0, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    mockRead.mockResolvedValue({ resource: garment });
+    mockReplace.mockResolvedValue({ resource: { ...garment, wearCount: 0 } });
+
+    const { decrementWearCount } = await import("./garmentService.js");
+    const result = await decrementWearCount("g1", "user-1");
+
+    expect(result.wearCount).toBe(0);
+    const replaced = mockReplace.mock.calls[0][0];
+    expect(replaced.wearCount).toBe(0);
+  });
+
+  it("decrementWearCount throws when garment is not found", async () => {
+    mockRead.mockResolvedValue({ resource: undefined });
+
+    const { decrementWearCount } = await import("./garmentService.js");
+    await expect(decrementWearCount("g1", "user-1")).rejects.toThrow("not found");
   });
 });

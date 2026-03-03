@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import styles from './DailyUpload.module.css';
-import { getSasUrl, uploadToBlob, predictOutfit, confirmWear, type PredictResponse } from '../api';
+import { getSasUrl, uploadToBlob, predictOutfit, confirmWear, deleteWearEvent, type PredictResponse } from '../api';
 
 export default function DailyUpload() {
   const [result, setResult] = useState<PredictResponse | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [wearEventId, setWearEventId] = useState<string | null>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -37,7 +39,8 @@ export default function DailyUpload() {
     setConfirming(true);
     setError(null);
     try {
-      await confirmWear(result.predictionAuditId, garmentId, true);
+      const wearEvent = await confirmWear(result.predictionAuditId, garmentId, true);
+      setWearEventId(wearEvent.id);
       setConfirmed(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to record wear.');
@@ -46,11 +49,26 @@ export default function DailyUpload() {
     }
   };
 
+  const handleRemoveOutfit = async () => {
+    if (!wearEventId) return;
+    setRemoving(true);
+    setError(null);
+    try {
+      await deleteWearEvent(wearEventId);
+      resetUpload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove outfit.');
+    } finally {
+      setRemoving(false);
+    }
+  };
+
   const resetUpload = () => {
     setResult(null);
     setConfirmed(false);
     setPreview(null);
     setError(null);
+    setWearEventId(null);
   };
 
   return (
@@ -164,6 +182,15 @@ export default function DailyUpload() {
           <button className={styles.retryButton} onClick={resetUpload}>
             Upload Another
           </button>
+          {wearEventId && (
+            <button
+              className={styles.removeButton}
+              onClick={handleRemoveOutfit}
+              disabled={removing}
+            >
+              {removing ? 'Removing…' : '🗑️ Remove This Outfit'}
+            </button>
+          )}
         </div>
       )}
 
