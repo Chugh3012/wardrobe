@@ -83,6 +83,13 @@ export async function postWearConfirm(
       jsonBody: { error: `'predictionAuditId' must be at most ${MAX_ID_LENGTH} characters.` },
     };
   }
+  // L15: Character-set validation (defense-in-depth)
+  if (!/^[a-zA-Z0-9_-]+$/.test(predictionAuditId)) {
+    return {
+      status: 400,
+      jsonBody: { error: "Invalid 'predictionAuditId' format." },
+    };
+  }
   if (!confirmedGarmentId) {
     return {
       status: 400,
@@ -93,6 +100,13 @@ export async function postWearConfirm(
     return {
       status: 400,
       jsonBody: { error: `'confirmedGarmentId' must be at most ${MAX_ID_LENGTH} characters.` },
+    };
+  }
+  // L15: Character-set validation (defense-in-depth)
+  if (!/^[a-zA-Z0-9_-]+$/.test(confirmedGarmentId)) {
+    return {
+      status: 400,
+      jsonBody: { error: "Invalid 'confirmedGarmentId' format." },
     };
   }
   if (typeof body.confirmed !== "boolean") {
@@ -113,6 +127,14 @@ export async function postWearConfirm(
       };
     }
 
+    // ── H7: Idempotency — reject if this audit was already confirmed ────────
+    if (audit.userFinalSelection) {
+      return {
+        status: 409,
+        jsonBody: { error: "This prediction has already been confirmed. Duplicate submissions are not allowed." },
+      };
+    }
+
     // ── Verify garment ownership (IDOR prevention) ─────────────────────────
     const garment = await readGarment(confirmedGarmentId, userId);
     if (!garment) {
@@ -129,9 +151,9 @@ export async function postWearConfirm(
       audit.topKPredictions.length > 0 ? audit.topKPredictions[0].confidence : 0;
 
     // ── If correction, update userFinalSelection on the audit ──────────────
-    if (!confirmed) {
-      await updatePredictionAudit(predictionAuditId, userId, confirmedGarmentId);
-    }
+    // Always record the user's selection (for both confirm and correct) so the
+    // idempotency check (H7) works on subsequent requests.
+    await updatePredictionAudit(predictionAuditId, userId, confirmedGarmentId);
 
     // ── Create WearEvent ──────────────────────────────────────────────────
     const wearEvent = await createWearEvent({

@@ -130,6 +130,10 @@ describe("POST /api/wear/confirm", () => {
     mockRead.mockResolvedValueOnce({ resource: sampleAudit() });
     // readGarment (ownership check)
     mockRead.mockResolvedValueOnce({ resource: sampleGarment() });
+    // updatePredictionAudit: read audit
+    mockRead.mockResolvedValueOnce({ resource: sampleAudit() });
+    // updatePredictionAudit: replace audit
+    mockReplace.mockResolvedValueOnce({ resource: { ...sampleAudit(), userFinalSelection: "g1" } });
     // createWearEvent
     mockCreate.mockResolvedValueOnce({ resource: sampleWearEvent() });
     // incrementWearCount: read garment
@@ -148,6 +152,10 @@ describe("POST /api/wear/confirm", () => {
     mockRead.mockResolvedValueOnce({ resource: sampleAudit() });
     // readGarment (ownership check)
     mockRead.mockResolvedValueOnce({ resource: sampleGarment() });
+    // updatePredictionAudit: read audit
+    mockRead.mockResolvedValueOnce({ resource: sampleAudit() });
+    // updatePredictionAudit: replace audit
+    mockReplace.mockResolvedValueOnce({ resource: { ...sampleAudit(), userFinalSelection: "g1" } });
     mockCreate.mockResolvedValueOnce({ resource: sampleWearEvent() });
     mockRead.mockResolvedValueOnce({ resource: sampleGarment() });
     mockReplace.mockResolvedValueOnce({ resource: { ...sampleGarment(), wearCount: 4 } });
@@ -160,10 +168,12 @@ describe("POST /api/wear/confirm", () => {
     expect(wearEvt.garmentId).toBe("g1");
     expect(wearEvt.confirmed).toBe(true);
 
-    // Garment wearCount was read then replaced
-    expect(mockReplace).toHaveBeenCalledOnce();
-    const replaced = mockReplace.mock.calls[0][0];
-    expect(replaced.wearCount).toBe(4);
+    // Garment wearCount was read then replaced (2 replaces total: audit + garment)
+    expect(mockReplace).toHaveBeenCalledTimes(2);
+    // First replace: audit userFinalSelection update
+    expect(mockReplace.mock.calls[0][0].userFinalSelection).toBe("g1");
+    // Second replace: garment wearCount increment
+    expect(mockReplace.mock.calls[1][0].wearCount).toBe(4);
   });
 
   // ── Happy path (confirmed = false / correction) ──────────────────────────

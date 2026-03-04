@@ -52,6 +52,13 @@ export async function deleteWearEventHandler(
       jsonBody: { error: `'id' must be at most ${MAX_ID_LENGTH} characters.` },
     };
   }
+  // L14: Character-set validation (defense-in-depth)
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+    return {
+      status: 400,
+      jsonBody: { error: "Invalid 'id' format." },
+    };
+  }
 
   try {
     // ── Verify the wear event exists and belongs to the user ────────────────

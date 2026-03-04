@@ -1,0 +1,35 @@
+{
+  "name": "wardrobe",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Wardrobe Tracker — monorepo orchestration",
+  "type": "module",
+  "scripts": {
+    "--- DEV ---": "",
+    "dev": "node scripts/dev.mjs",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run prestart && npm run start",
+    "dev:mock": "node scripts/mock-api.mjs",
+    "dev:frontend-mock": "concurrently -n FE,MOCK -c cyan,yellow \"npm run dev:frontend\" \"npm run dev:mock\"",
+    "--- BUILD ---": "",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "--- TEST ---": "",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "test:integration": "cd backend && npx vitest run --config vitest.integration.config.ts",
+    "test:e2e": "cd e2e && npx playwright test",
+    "test:e2e:ui": "cd e2e && npx playwright test --grep @ui",
+    "test:e2e:api": "cd e2e && npx playwright test --grep @api",
+    "test:e2e:azure": "cd e2e && npx playwright test --grep @azure",
+    "test:all": "npm run test && npm run test:integration",
+    "--- SETUP ---": "",
+    "install:all": "cd backend && npm ci && cd ../frontend && npm ci && cd ../e2e && npm ci",
+    "clean": "cd backend && npm run clean && cd ../frontend && rm -rf dist"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

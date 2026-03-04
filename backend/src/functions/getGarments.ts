@@ -41,6 +41,13 @@ export async function getGarments(
   // ── Parse pagination query params (F3) ─────────────────────────────────
   const pageSizeParam = request.query.get("pageSize");
   const continuationToken = request.query.get("continuationToken") || undefined;
+  // M12: Bound continuation token length to prevent oversized payloads
+  if (continuationToken && continuationToken.length > 8192) {
+    return {
+      status: 400,
+      jsonBody: { error: "'continuationToken' is too long." },
+    };
+  }
   const pageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : undefined;
 
   if (pageSizeParam !== null && (isNaN(pageSize!) || pageSize! < 1)) {

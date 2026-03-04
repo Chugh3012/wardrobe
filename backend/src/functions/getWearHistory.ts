@@ -6,6 +6,7 @@ import {
 } from "@azure/functions";
 import { listWearEventsPaginated } from "../services/wearEventService.js";
 import { listGarments } from "../services/garmentService.js";
+import { generateReadSasUrls } from "../services/blobSasService.js";
 import {
   extractUserId,
   unauthorizedResponse,
@@ -42,6 +43,12 @@ export async function getWearHistory(
 
   const pageSizeParam = request.query.get("pageSize");
   const continuationToken = request.query.get("continuationToken") || undefined;
+  if (continuationToken && continuationToken.length > 8192) {
+    return {
+      status: 400,
+      jsonBody: { error: "'continuationToken' is too long." },
+    };
+  }
   const pageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : undefined;
 
   if (pageSizeParam !== null && (isNaN(pageSize!) || pageSize! < 1)) {
@@ -59,14 +66,18 @@ export async function getWearHistory(
 
     const garmentMap = new Map(garments.map((g) => [g.id, g]));
 
-    const enrichedEvents = events.map((e) => {
+    // M8: Generate fresh SAS URLs for outfit images (stored URLs expire after 1 hour)
+    const rawOutfitUrls = events.map((e) => e.outfitImageUrl || null);
+    const freshOutfitUrls = await generateReadSasUrls(rawOutfitUrls);
+
+    const enrichedEvents = events.map((e, i) => {
       const garment = garmentMap.get(e.garmentId);
       return {
         id: e.id,
         garmentId: e.garmentId,
         garmentName: garment?.name ?? "Unknown",
         category: garment?.category ?? "other",
-        outfitImageUrl: e.outfitImageUrl,
+        outfitImageUrl: freshOutfitUrls[i] ?? e.outfitImageUrl,
         confidence: e.confidence,
         createdAt: e.createdAt,
       };

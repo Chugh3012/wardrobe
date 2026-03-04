@@ -48,9 +48,12 @@ export async function generateReadSasUrls(
   if (urls.length === 0 || urls.every((u) => !u)) return urls;
 
   const client = getBlobServiceClient(blobAccountName);
+  // Start 5 minutes in the past to account for clock skew between
+  // the local machine and Azure Storage servers.
   const now = new Date();
+  const start = new Date(now.getTime() - 5 * 60 * 1000);
   const expiry = new Date(now.getTime() + READ_TTL_SECONDS * 1000);
-  const delegationKey = await client.getUserDelegationKey(now, expiry);
+  const delegationKey = await client.getUserDelegationKey(start, expiry);
 
   return urls.map((url) => {
     if (!url) return null;
@@ -76,7 +79,7 @@ export async function generateReadSasUrls(
         containerName,
         blobName,
         permissions: BlobSASPermissions.parse("r"),
-        startsOn: now,
+        startsOn: start,
         expiresOn: expiry,
         protocol: SASProtocol.Https,
       },

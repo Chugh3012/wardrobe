@@ -11,15 +11,30 @@ import { msalInstance, apiScopes } from './msalConfig';
 
 export type Page = 'dashboard' | 'catalog' | 'add' | 'upload' | 'history' | 'garment-detail';
 
+/**
+ * When VITE_SKIP_AUTH is "true" (local dev only), bypass MSAL entirely.
+ * This is safe because:
+ *  - The env var is only set in .env.local (gitignored)
+ *  - Production builds never have this var
+ *  - The backend still requires REQUIRE_AUTH=false + a user ID header
+ * Evaluated as a function (not a constant) so tests can control it via vi.stubEnv.
+ */
+function isAuthSkipped(): boolean {
+  return import.meta.env.VITE_SKIP_AUTH === 'true';
+}
+
 export default function App() {
   const [page, setPage] = useState<Page>('dashboard');
-  const [authChecked, setAuthChecked] = useState(false);
+  const [authChecked, setAuthChecked] = useState(isAuthSkipped());
   const [selectedGarmentId, setSelectedGarmentId] = useState<string | null>(null);
 
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // MSAL auth: handle redirect promise then check for logged-in accounts
+  // MSAL auth: handle redirect promise then check for logged-in accounts.
+  // Skipped entirely when VITE_SKIP_AUTH=true (local dev with mock/proxy).
   useEffect(() => {
+    if (isAuthSkipped()) return;
+
     msalInstance
       .initialize()
       .then(() => msalInstance.handleRedirectPromise())

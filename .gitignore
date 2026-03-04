@@ -13,6 +13,11 @@ build/
 # Azure Functions local settings (may contain connection strings)
 local.settings.json
 
+# Azurite local storage emulator
+.azurite/
+__azurite_*
+__blobstorage__/
+
 # Editor/OS
 .DS_Store
 *.swp

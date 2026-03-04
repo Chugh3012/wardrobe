@@ -1,0 +1,34 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+
+    "REQUIRE_AUTH": "false",
+
+    "COSMOS_DB_ENDPOINT": "https://cosmos-wardrobe-dev.documents.azure.com:443/",
+    "COSMOS_DB_DATABASE_NAME": "wardrobe",
+
+    "BLOB_ACCOUNT_NAME": "stwardrobeimgdev",
+
+    "CUSTOM_VISION_TRAINING_ENDPOINT": "",
+    "CUSTOM_VISION_TRAINING_KEY": "",
+    "CUSTOM_VISION_PREDICTION_ENDPOINT": "",
+    "CUSTOM_VISION_PREDICTION_KEY": "",
+    "CUSTOM_VISION_PROJECT_ID": "",
+    "CUSTOM_VISION_ITERATION_NAME": "",
+
+    "AI_VISION_ENDPOINT": "",
+    "AI_VISION_KEY": "",
+
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": "",
+
+    "HIGH_CONFIDENCE_THRESHOLD": "0.85",
+    "MEDIUM_CONFIDENCE_THRESHOLD": "0.60"
+  },
+  "Host": {
+    "CORS": "http://localhost:5173,http://localhost:4280",
+    "CORSCredentials": true,
+    "LocalHttpPort": 7071
+  }
+}

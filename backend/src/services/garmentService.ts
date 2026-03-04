@@ -45,44 +45,79 @@ export async function readGarment(id: string, userId: string): Promise<Garment |
 
 /**
  * Increments the wearCount on a Garment by 1 and updates the updatedAt timestamp.
+ *
+ * Uses Cosmos DB ETag optimistic concurrency to prevent lost updates from
+ * concurrent requests (H6). If another request modified the document between
+ * our read and replace, the 412 PreconditionFailed error is retried (up to 3 times).
  */
 export async function incrementWearCount(id: string, userId: string): Promise<Garment> {
   const container = getContainer();
-  const { resource: existing } = await container.item(id, userId).read<Garment>();
-  if (!existing) {
-    throw new Error(`Garment ${id} not found for user ${userId}.`);
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const { resource: existing, etag } = await container.item(id, userId).read<Garment>();
+    if (!existing) {
+      throw new Error(`Garment ${id} not found for user ${userId}.`);
+    }
+    const updated: Garment = {
+      ...existing,
+      wearCount: existing.wearCount + 1,
+      updatedAt: new Date().toISOString(),
+    };
+    try {
+      const { resource } = await container.item(id, userId).replace<Garment>(updated, {
+        accessCondition: { type: "IfMatch", condition: etag! },
+      });
+      if (!resource) {
+        throw new Error("Cosmos DB replace returned no resource.");
+      }
+      return resource;
+    } catch (err: unknown) {
+      if (typeof err === "object" && err !== null && "code" in err && (err as { code: number }).code === 412) {
+        // Conflict — another request modified this document. Retry.
+        if (attempt === MAX_RETRIES - 1) throw err;
+        continue;
+      }
+      throw err;
+    }
   }
-  const updated: Garment = {
-    ...existing,
-    wearCount: existing.wearCount + 1,
-    updatedAt: new Date().toISOString(),
-  };
-  const { resource } = await container.item(id, userId).replace<Garment>(updated);
-  if (!resource) {
-    throw new Error("Cosmos DB replace returned no resource.");
-  }
-  return resource;
+  throw new Error("incrementWearCount: max retries exceeded.");
 }
 
 /**
  * Decrements the wearCount on a Garment by 1 (minimum 0) and updates the updatedAt timestamp.
+ *
+ * Uses Cosmos DB ETag optimistic concurrency (H6).
  */
 export async function decrementWearCount(id: string, userId: string): Promise<Garment> {
   const container = getContainer();
-  const { resource: existing } = await container.item(id, userId).read<Garment>();
-  if (!existing) {
-    throw new Error(`Garment ${id} not found for user ${userId}.`);
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const { resource: existing, etag } = await container.item(id, userId).read<Garment>();
+    if (!existing) {
+      throw new Error(`Garment ${id} not found for user ${userId}.`);
+    }
+    const updated: Garment = {
+      ...existing,
+      wearCount: Math.max(existing.wearCount - 1, 0),
+      updatedAt: new Date().toISOString(),
+    };
+    try {
+      const { resource } = await container.item(id, userId).replace<Garment>(updated, {
+        accessCondition: { type: "IfMatch", condition: etag! },
+      });
+      if (!resource) {
+        throw new Error("Cosmos DB replace returned no resource.");
+      }
+      return resource;
+    } catch (err: unknown) {
+      if (typeof err === "object" && err !== null && "code" in err && (err as { code: number }).code === 412) {
+        if (attempt === MAX_RETRIES - 1) throw err;
+        continue;
+      }
+      throw err;
+    }
   }
-  const updated: Garment = {
-    ...existing,
-    wearCount: Math.max(existing.wearCount - 1, 0),
-    updatedAt: new Date().toISOString(),
-  };
-  const { resource } = await container.item(id, userId).replace<Garment>(updated);
-  if (!resource) {
-    throw new Error("Cosmos DB replace returned no resource.");
-  }
-  return resource;
+  throw new Error("decrementWearCount: max retries exceeded.");
 }
 
 /**

@@ -454,7 +454,7 @@ test.describe('Daily Upload Page @ui', () => {
 // ── 4e: Bottom Navigation ──────────────────────────────────────────────────
 
 test.describe('Bottom Navigation @ui', () => {
-  test('has three navigation items: Dashboard, Catalog, Today', async ({ page }) => {
+  test('has four navigation items: Dashboard, Catalog, Today, History', async ({ page }) => {
     await mockApis(page);
 
     await page.goto(LOCAL_BASE, { waitUntil: 'networkidle' });
@@ -464,12 +464,13 @@ test.describe('Bottom Navigation @ui', () => {
 
     const buttons = nav.getByRole('button');
     const count = await buttons.count();
-    expect(count).toBe(3);
+    expect(count).toBe(4);
 
     const labels = await buttons.allTextContents();
     expect(labels.some(l => /dashboard/i.test(l))).toBe(true);
     expect(labels.some(l => /catalog/i.test(l))).toBe(true);
     expect(labels.some(l => /today/i.test(l))).toBe(true);
+    expect(labels.some(l => /history/i.test(l))).toBe(true);
   });
 
   test('navigating between pages updates active state', async ({ page }) => {

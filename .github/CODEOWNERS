@@ -1,0 +1,12 @@
+# Require the repo owner to approve changes to sensitive files.
+# GitHub enforces this when branch protection requires CODEOWNERS review.
+
+# CI/CD workflows — any change to these can run code with Azure credentials
+/.github/workflows/     @Chugh3012
+
+# Infrastructure — changes here modify real Azure resources
+/infra/                 @Chugh3012
+
+# Auth configuration — changes here affect the security boundary
+/frontend/public/staticwebapp.config.json  @Chugh3012
+/backend/src/services/authMiddleware.ts    @Chugh3012
