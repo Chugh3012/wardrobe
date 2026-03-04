@@ -4,10 +4,11 @@ import Dashboard from './pages/Dashboard';
 import Catalog from './pages/Catalog';
 import AddGarment from './pages/AddGarment';
 import DailyUpload from './pages/DailyUpload';
+import History from './pages/History';
 import { trackPageView } from './telemetry';
 import { msalInstance, apiScopes } from './msalConfig';
 
-export type Page = 'dashboard' | 'catalog' | 'add' | 'upload';
+export type Page = 'dashboard' | 'catalog' | 'add' | 'upload' | 'history';
 
 export default function App() {
   const [page, setPage] = useState<Page>('dashboard');
@@ -66,6 +67,7 @@ export default function App() {
       case 'catalog':   return <Catalog onAddGarment={() => setPage('add')} />;
       case 'add':       return <AddGarment onBack={() => setPage('catalog')} />;
       case 'upload':    return <DailyUpload />;
+      case 'history':   return <History />;
     }
   };
 
