@@ -19,25 +19,29 @@ export default function AddGarment({ onBack }: AddGarmentProps) {
   const [success, setSuccess] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Revoke all object URLs when the previews array changes or on unmount to prevent memory leaks.
+  // Keep a ref to the latest previews for unmount cleanup (avoids stale-closure issues).
+  const previewsRef = useRef<string[]>([]);
+  previewsRef.current = previews;
+
+  // Revoke remaining object URLs on unmount to prevent memory leaks.
   useEffect(() => {
-    return () => { previews.forEach(url => URL.revokeObjectURL(url)); };
-  }, [previews]);
+    return () => { previewsRef.current.forEach(url => URL.revokeObjectURL(url)); };
+  }, []);
 
   const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files;
     if (!selected) return;
     const incoming = Array.from(selected).slice(0, MAX_PHOTOS - files.length);
-    const merged = [...files, ...incoming].slice(0, MAX_PHOTOS);
-    setFiles(merged);
-    setPreviews(merged.map((f) => URL.createObjectURL(f)));
+    const newPreviews = incoming.map((f) => URL.createObjectURL(f));
+    setFiles([...files, ...incoming].slice(0, MAX_PHOTOS));
+    setPreviews([...previews, ...newPreviews].slice(0, MAX_PHOTOS));
     setError(null);
   };
 
   const removePhoto = (idx: number) => {
-    const next = files.filter((_, i) => i !== idx);
-    setFiles(next);
-    setPreviews(next.map((f) => URL.createObjectURL(f)));
+    URL.revokeObjectURL(previews[idx]);
+    setFiles(files.filter((_, i) => i !== idx));
+    setPreviews(previews.filter((_, i) => i !== idx));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
