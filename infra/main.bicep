@@ -90,6 +90,19 @@ module aiServices 'modules/ai-services.bicep' = {
   }
 }
 
+// ── Key Vault Secrets (auto-populated from AI service keys) ──────────────────
+
+module keyVaultSecrets 'modules/key-vault-secrets.bicep' = {
+  name: 'key-vault-secrets-${environmentName}'
+  scope: rg
+  params: {
+    keyVaultName: keyVault.outputs.keyVaultName
+    cvTrainingAccountName: aiServices.outputs.cvTrainingAccountName
+    cvPredictionAccountName: aiServices.outputs.cvPredictionAccountName
+    aiVisionAccountName: aiServices.outputs.aiVisionAccountName
+  }
+}
+
 // ── Observability (Application Insights & Log Analytics — Issue #14) ───────────
 
 module observability 'modules/observability.bicep' = {

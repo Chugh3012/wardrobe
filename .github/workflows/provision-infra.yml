@@ -178,3 +178,27 @@ jobs:
           echo "Hostname: $(echo '${{ steps.deploy.outputs.deployment_output }}' | jq -r '.staticWebAppHostname.value')"
           echo "Function App: $(echo '${{ steps.deploy.outputs.deployment_output }}' | jq -r '.functionAppName.value')"
           echo "Function App Hostname: $(echo '${{ steps.deploy.outputs.deployment_output }}' | jq -r '.functionAppHostname.value')"
+
+      # Verify that all required Key Vault secrets were populated by the
+      # key-vault-secrets.bicep module. This catches any regression where
+      # secrets are missing after provisioning (F7 — Issue #17).
+      - name: Verify Key Vault secrets
+        run: |
+          KV_NAME=$(echo '${{ steps.deploy.outputs.deployment_output }}' | jq -r '.keyVaultName.value')
+          echo "Verifying secrets in Key Vault: $KV_NAME"
+
+          missing=0
+          for secret in CustomVisionTrainingKey CustomVisionPredictionKey AIVisionKey; do
+            if az keyvault secret show --vault-name "$KV_NAME" --name "$secret" --query "id" --output tsv > /dev/null; then
+              echo "✅ $secret — present"
+            else
+              echo "::error::❌ $secret — MISSING from Key Vault $KV_NAME"
+              missing=$((missing + 1))
+            fi
+          done
+
+          if [ "$missing" -gt 0 ]; then
+            echo "::error::$missing Key Vault secret(s) missing. The Function App will fail to read AI service keys."
+            exit 1
+          fi
+          echo "All Key Vault secrets verified."

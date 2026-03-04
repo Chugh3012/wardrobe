@@ -181,10 +181,8 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         }
         // ── AI service API keys via Key Vault references (SEC-P4) ─────────────
         // The Function App MI has "Key Vault Secrets User" role (key-vault-rbac.bicep).
-        // Secrets must be populated manually:
-        //   az keyvault secret set --vault-name <vaultName> --name CustomVisionTrainingKey --value <key>
-        //   az keyvault secret set --vault-name <vaultName> --name CustomVisionPredictionKey --value <key>
-        //   az keyvault secret set --vault-name <vaultName> --name AIVisionKey --value <key>
+        // Secrets are auto-populated by the key-vault-secrets.bicep module using
+        // listKeys() from the Cognitive Services accounts.
         {
           name: 'CUSTOM_VISION_TRAINING_KEY'
           value: !empty(keyVaultName) ? '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/CustomVisionTrainingKey)' : ''

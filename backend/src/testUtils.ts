@@ -50,6 +50,24 @@ export function makePostRequest(
   });
 }
 
+/** Create a PATCH HttpRequest with a JSON body and optional auth. */
+export function makePatchRequest(
+  path: string,
+  body: unknown,
+  opts: { userId?: string; headers?: Record<string, string> } = {},
+): HttpRequest {
+  return new HttpRequest({
+    method: "PATCH",
+    url: `http://localhost:7071${path}`,
+    headers: {
+      "content-type": "application/json",
+      ...authHeaders(opts.userId),
+      ...opts.headers,
+    },
+    body: { string: JSON.stringify(body) },
+  });
+}
+
 /** Create a DELETE HttpRequest with optional auth. */
 export function makeDeleteRequest(
   path: string,

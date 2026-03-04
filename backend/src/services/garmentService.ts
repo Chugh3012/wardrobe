@@ -120,6 +120,71 @@ export async function decrementWearCount(id: string, userId: string): Promise<Ga
   throw new Error("decrementWearCount: max retries exceeded.");
 }
 
+/** Fields that can be updated via PATCH /api/garments/{id}. */
+export interface GarmentUpdate {
+  name?: string;
+  category?: string;
+  catalogImageUrls?: string[];
+  catalogEmbeddings?: number[][];
+}
+
+/**
+ * Partially updates a Garment document and returns the updated item.
+ *
+ * Uses Cosmos DB ETag optimistic concurrency to prevent lost updates.
+ */
+export async function updateGarment(
+  id: string,
+  userId: string,
+  updates: GarmentUpdate,
+): Promise<Garment | undefined> {
+  const container = getContainer();
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const { resource: existing, etag } = await container.item(id, userId).read<Garment>();
+    if (!existing) {
+      return undefined;
+    }
+    const merged: Garment = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    try {
+      const { resource } = await container.item(id, userId).replace<Garment>(merged, {
+        accessCondition: { type: "IfMatch", condition: etag! },
+      });
+      if (!resource) {
+        throw new Error("Cosmos DB replace returned no resource.");
+      }
+      return resource;
+    } catch (err: unknown) {
+      if (typeof err === "object" && err !== null && "code" in err && (err as { code: number }).code === 412) {
+        if (attempt === MAX_RETRIES - 1) throw err;
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error("updateGarment: max retries exceeded.");
+}
+
+/**
+ * Deletes a Garment by id and userId (partition key).
+ * Throws if the document does not exist.
+ */
+export async function deleteGarment(id: string, userId: string): Promise<void> {
+  await getContainer().item(id, userId).delete();
+}
+
+/**
+ * Deletes a Garment by id and userId (partition key).
+ * Throws if the document does not exist.
+ */
+export async function deleteGarment(id: string, userId: string): Promise<void> {
+  await getContainer().item(id, userId).delete();
+}
+
 /**
  * Lists all garments for a given userId (unpaginated).
  * Used internally by endpoints that need the full set (e.g. stats, predict).

@@ -190,6 +190,12 @@ export interface CreatedGarment {
   updatedAt: string;
 }
 
+export interface GarmentUpdate {
+  name?: string;
+  category?: string;
+  catalogImageUrls?: string[];
+}
+
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -291,6 +297,22 @@ export async function createGarment(
   return result;
 }
 
+/**
+ * PATCH /api/garments/{id} — update an existing garment.
+ */
+export async function updateGarment(
+  id: string,
+  updates: GarmentUpdate,
+): Promise<CreatedGarment> {
+  const result = await apiFetch<CreatedGarment>(`/api/garments/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  invalidateCache('/api/garments', '/api/stats');
+  return result;
+}
+
 // ── Images ───────────────────────────────────────────────────────────────────
 
 /**
@@ -385,6 +407,34 @@ export async function deleteWearEvent(id: string): Promise<void> {
     throw new Error(message);
   }
   invalidateCache('/api/stats', '/api/wear/history', '/api/garments');
+}
+
+/**
+ * DELETE /api/garments/{id} — remove a garment from the user's catalog.
+ */
+export async function deleteGarment(id: string): Promise<void> {
+  const token = await getAccessToken();
+  const url = `${apiBaseUrl}/api/garments/${encodeURIComponent(id)}`;
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers,
+  });
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const ct = res.headers.get('content-type') ?? '';
+      if (ct.includes('application/json')) {
+        const body = await res.json();
+        if (body?.error) message = body.error;
+      }
+    } catch {
+      // body wasn't JSON — keep default message
+    }
+    throw new Error(message);
+  }
+  invalidateCache('/api/garments', '/api/stats');
 }
 
 // ── Stats ────────────────────────────────────────────────────────────────────

@@ -39,7 +39,7 @@ vi.stubEnv('VITE_SKIP_AUTH', '');
 
 // ── Import after mocks ─────────────────────────────────────────────────────
 
-const { fetchGarments, fetchStatsSummary, fetchWearHistory, createGarment, getSasUrl, predictOutfit, confirmWear, deleteWearEvent, clearApiCache } = await import('./api');
+const { fetchGarments, fetchStatsSummary, fetchWearHistory, createGarment, updateGarment, getSasUrl, predictOutfit, confirmWear, deleteWearEvent, deleteGarment, clearApiCache } = await import('./api');
 
 // ── Setup ───────────────────────────────────────────────────────────────────
 
@@ -113,6 +113,36 @@ describe('API Client', () => {
       expect(body.name).toBe('Shirt');
       expect(body.category).toBe('top');
       expect(result).toEqual(created);
+    });
+  });
+
+  describe('updateGarment', () => {
+    it('sends PATCH /api/garments/:id with body', async () => {
+      const updated = { id: 'g1', name: 'New Name', category: 'top', wearCount: 3 };
+      mockFetch.mockResolvedValue(mockJsonResponse(200, updated));
+
+      const result = await updateGarment('g1', { name: 'New Name' });
+
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('http://localhost:7071/api/garments/g1');
+      expect(init.method).toBe('PATCH');
+      const body = JSON.parse(init.body);
+      expect(body.name).toBe('New Name');
+      expect(result).toEqual(updated);
+    });
+
+    it('invalidates garments + stats cache after updateGarment', async () => {
+      const stats = { totalGarments: 1, totalWearEvents: 0 };
+      mockFetch.mockResolvedValue(mockJsonResponse(200, stats));
+      await fetchStatsSummary();
+
+      const updated = { id: 'g1', name: 'Updated', category: 'top', wearCount: 0 };
+      mockFetch.mockResolvedValue(mockJsonResponse(200, updated));
+      await updateGarment('g1', { name: 'Updated' });
+
+      mockFetch.mockResolvedValue(mockJsonResponse(200, { ...stats, totalGarments: 1 }));
+      await fetchStatsSummary();
+      expect(mockFetch).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -201,6 +231,37 @@ describe('API Client', () => {
       mockFetch.mockResolvedValue(mockJsonResponse(404, { error: 'Not found' }));
 
       await expect(deleteWearEvent('bad-id')).rejects.toThrow();
+    });
+  });
+
+  describe('deleteGarment', () => {
+    it('sends DELETE /api/garments/:id', async () => {
+      mockFetch.mockResolvedValue({ ok: true, status: 204, headers: new Headers() });
+
+      await deleteGarment('g1');
+
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('http://localhost:7071/api/garments/g1');
+      expect(init.method).toBe('DELETE');
+    });
+
+    it('throws on failure', async () => {
+      mockFetch.mockResolvedValue(mockJsonResponse(404, { error: 'Garment not found.' }));
+
+      await expect(deleteGarment('bad-id')).rejects.toThrow('Garment not found.');
+    });
+
+    it('invalidates garments and stats cache after delete', async () => {
+      mockFetch.mockResolvedValue(mockJsonResponse(200, { garments: [{ id: 'g1' }] }));
+      await fetchGarments();
+
+      mockFetch.mockResolvedValue({ ok: true, status: 204, headers: new Headers() });
+      await deleteGarment('g1');
+
+      mockFetch.mockResolvedValue(mockJsonResponse(200, { garments: [] }));
+      const result = await fetchGarments();
+      expect(result.garments).toHaveLength(0);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
     });
   });
 
