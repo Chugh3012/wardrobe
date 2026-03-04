@@ -387,6 +387,34 @@ export async function deleteWearEvent(id: string): Promise<void> {
   invalidateCache('/api/stats', '/api/wear/history', '/api/garments');
 }
 
+/**
+ * DELETE /api/garments/{id} — remove a garment from the user's catalog.
+ */
+export async function deleteGarment(id: string): Promise<void> {
+  const token = await getAccessToken();
+  const url = `${apiBaseUrl}/api/garments/${encodeURIComponent(id)}`;
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers,
+  });
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const ct = res.headers.get('content-type') ?? '';
+      if (ct.includes('application/json')) {
+        const body = await res.json();
+        if (body?.error) message = body.error;
+      }
+    } catch {
+      // body wasn't JSON — keep default message
+    }
+    throw new Error(message);
+  }
+  invalidateCache('/api/garments', '/api/stats');
+}
+
 // ── Stats ────────────────────────────────────────────────────────────────────
 
 /**
