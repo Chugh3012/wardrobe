@@ -103,10 +103,11 @@ describe("GET /api/stats/summary", () => {
   // ── Happy path ────────────────────────────────────────────────────────────
 
   it("returns 200 with full stats summary", async () => {
-    // listGarments then getWearEventAggregations (both use query → fetchAll)
+    // listGarments, getWearEventAggregations, getWearDates (all use query → fetchAll)
     mockFetchAll
       .mockResolvedValueOnce({ resources: sampleGarments() })
-      .mockResolvedValueOnce({ resources: sampleWearAggregations() });
+      .mockResolvedValueOnce({ resources: sampleWearAggregations() })
+      .mockResolvedValueOnce({ resources: [] });
 
     const { getStatsSummary } = await import("./getStatsSummary.js");
     const res = await getStatsSummary(makeRequest("user-1"), makeContext());
@@ -155,10 +156,23 @@ describe("GET /api/stats/summary", () => {
     expect(json.leastWorn).toEqual([
       { garmentId: "g2", name: "Red Dress", wearCount: 1 },
     ]);
+
+    // New fields: streaks, forgotten, calendar
+    const fullJson = res.jsonBody as {
+      streaks: { current: number; longest: number };
+      forgotten: unknown[];
+      calendar: unknown[];
+    };
+    expect(fullJson.streaks).toBeDefined();
+    expect(typeof fullJson.streaks.current).toBe("number");
+    expect(typeof fullJson.streaks.longest).toBe("number");
+    expect(Array.isArray(fullJson.forgotten)).toBe(true);
+    expect(Array.isArray(fullJson.calendar)).toBe(true);
   });
 
   it("returns 200 with empty summary when user has no garments", async () => {
     mockFetchAll
+      .mockResolvedValueOnce({ resources: [] })
       .mockResolvedValueOnce({ resources: [] })
       .mockResolvedValueOnce({ resources: [] });
 
@@ -186,7 +200,8 @@ describe("GET /api/stats/summary", () => {
     const garments = [sampleGarments()[0]]; // only g1
     mockFetchAll
       .mockResolvedValueOnce({ resources: garments })
-      .mockResolvedValueOnce({ resources: [] }); // no aggregations
+      .mockResolvedValueOnce({ resources: [] }) // no aggregations
+      .mockResolvedValueOnce({ resources: [] }); // no calendar data
 
     const { getStatsSummary } = await import("./getStatsSummary.js");
     const res = await getStatsSummary(makeRequest("user-1"), makeContext());
@@ -205,6 +220,7 @@ describe("GET /api/stats/summary", () => {
     ];
     mockFetchAll
       .mockResolvedValueOnce({ resources: garments })
+      .mockResolvedValueOnce({ resources: [] })
       .mockResolvedValueOnce({ resources: [] });
 
     const { getStatsSummary } = await import("./getStatsSummary.js");
