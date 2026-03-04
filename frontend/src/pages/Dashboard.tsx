@@ -11,7 +11,7 @@ export default function Dashboard() {
     setError(null);
     setLoading(true);
     fetchStatsSummary()
-      .then((data) => { setStats(data); setError(null); })
+      .then((data) => { setStats(data); })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load stats.'))
       .finally(() => setLoading(false));
   };

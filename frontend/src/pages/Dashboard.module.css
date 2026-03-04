@@ -128,6 +128,11 @@
   transform: scale(0.97);
 }
 
+.retryButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 /* ── Garment list (Most Worn / Least Worn) ───────────────────────────────── */
 
 .garmentList {
