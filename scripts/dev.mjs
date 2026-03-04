@@ -62,11 +62,11 @@ if (warnings.length > 0) {
 // ── Launch backend (Azure Functions Core Tools) ─────────────────────────────
 
 console.log('🔧 Starting backend (Azure Functions on :7071)...');
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+// On Windows, npm/npx are .cmd batch files that require shell: true.
+const spawnOpts = { stdio: 'inherit', shell: process.platform === 'win32' };
 
-const backend = spawn(npm, ['run', 'prestart'], {
-  cwd: resolve(ROOT, 'backend'), stdio: 'inherit',
+const backend = spawn('npm', ['run', 'prestart'], {
+  ...spawnOpts, cwd: resolve(ROOT, 'backend'),
 });
 
 backend.on('close', (code) => {
@@ -75,8 +75,8 @@ backend.on('close', (code) => {
     process.exit(1);
   }
 
-  const funcStart = spawn(npx, ['func', 'start', '--port', '7071'], {
-    cwd: resolve(ROOT, 'backend'), stdio: 'inherit',
+  const funcStart = spawn('npx', ['func', 'start', '--port', '7071'], {
+    ...spawnOpts, cwd: resolve(ROOT, 'backend'),
   });
 
   funcStart.on('error', (err) => {
@@ -94,8 +94,8 @@ backend.on('close', (code) => {
 // ── Launch frontend (Vite dev server) ───────────────────────────────────────
 
 console.log('⚡ Starting frontend (Vite on :5173)...');
-const frontend = spawn(npx, ['vite', '--port', '5173'], {
-  cwd: resolve(ROOT, 'frontend'), stdio: 'inherit',
+const frontend = spawn('npx', ['vite', '--port', '5173'], {
+  ...spawnOpts, cwd: resolve(ROOT, 'frontend'),
 });
 
 frontend.on('error', (err) => {
