@@ -64,6 +64,26 @@ export function trackPageView(name: string): void {
 }
 
 /**
+ * Property keys that must never be sent to telemetry to prevent
+ * accidental secret/credential leakage.
+ */
+const DENIED_PROPERTY_KEYS = /^(token|password|secret|authorization|cookie|key|credential)$/i;
+
+/** Strip denied keys from a properties bag before sending to App Insights. */
+function sanitizeProperties(
+  props?: Record<string, string>
+): Record<string, string> | undefined {
+  if (!props) return props;
+  const clean: Record<string, string> = {};
+  for (const [k, v] of Object.entries(props)) {
+    if (!DENIED_PROPERTY_KEYS.test(k)) {
+      clean[k] = v;
+    }
+  }
+  return clean;
+}
+
+/**
  * Track a custom event with optional properties and measurements.
  */
 export function trackCustomEvent(
@@ -71,7 +91,7 @@ export function trackCustomEvent(
   properties?: Record<string, string>,
   measurements?: Record<string, number>
 ): void {
-  appInsights?.trackEvent({ name, properties, measurements });
+  appInsights?.trackEvent({ name, properties: sanitizeProperties(properties), measurements });
 }
 
 /**
