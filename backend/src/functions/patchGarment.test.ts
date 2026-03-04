@@ -260,6 +260,22 @@ describe("PATCH /api/garments/{id}", () => {
     expect((res.jsonBody as { error: string }).error).toContain("must be one of");
   });
 
+  it("normalizes mixed-case category to lowercase before storing", async () => {
+    const updatedDoc = { ...existingGarment, category: "shoes", updatedAt: "2026-02-01T00:00:00.000Z" };
+    mockRead.mockResolvedValue({ resource: existingGarment, etag: "etag-1" });
+    mockReplace.mockResolvedValue({ resource: updatedDoc });
+
+    const { patchGarment } = await import("./patchGarment.js");
+    const res = await patchGarment(
+      makePatchRequest("g-123", { category: "SHOES" }, "user-1"),
+      makeContext(),
+    );
+
+    expect(res.status).toBe(200);
+    const replacedDoc = mockReplace.mock.calls[0][0] as { category: string };
+    expect(replacedDoc.category).toBe("shoes");
+  });
+
   // ── catalogImageUrls validation ───────────────────────────────────────────
 
   it("returns 400 when catalogImageUrls is not an array", async () => {

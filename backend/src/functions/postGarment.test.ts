@@ -292,6 +292,33 @@ describe("POST /api/garments", () => {
     }
   });
 
+  it("normalizes mixed-case category to lowercase before storing", async () => {
+    const garmentDoc = {
+      id: "abc-123",
+      userId: "user-1",
+      name: "Blue Shirt",
+      category: "top",
+      catalogImageUrls: [
+        "https://storageaccount.blob.core.windows.net/images/img1.jpg",
+      ],
+      wearCount: 0,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    mockCreate.mockResolvedValue({ resource: garmentDoc });
+
+    const { postGarment } = await import("./postGarment.js");
+    const res = await postGarment(
+      makeRequest(validBody({ category: "Top", catalogImageUrls: ["https://storageaccount.blob.core.windows.net/images/img1.jpg"] }), "user-1"),
+      makeContext()
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockCreate).toHaveBeenCalledOnce();
+    const createdDoc = mockCreate.mock.calls[0][0] as { category: string };
+    expect(createdDoc.category).toBe("top");
+  });
+
   // ── S7: SSRF — catalogImageUrls URL validation ────────────────────────────
 
   it("returns 400 when a catalogImageUrl uses http instead of https", async () => {

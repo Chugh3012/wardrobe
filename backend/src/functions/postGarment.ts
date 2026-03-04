@@ -87,6 +87,7 @@ export async function postGarment(
 
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const category = typeof body.category === "string" ? body.category.trim() : "";
+  const normalizedCategory = category.toLowerCase();
 
   if (!name) {
     return {
@@ -100,19 +101,19 @@ export async function postGarment(
       jsonBody: { error: `'name' must be at most ${MAX_NAME_LENGTH} characters.` },
     };
   }
-  if (!category) {
+  if (!normalizedCategory) {
     return {
       status: 400,
       jsonBody: { error: "'category' is required." },
     };
   }
-  if (category.length > MAX_CATEGORY_LENGTH) {
+  if (normalizedCategory.length > MAX_CATEGORY_LENGTH) {
     return {
       status: 400,
       jsonBody: { error: `'category' must be at most ${MAX_CATEGORY_LENGTH} characters.` },
     };
   }
-  if (!ALLOWED_CATEGORIES.has(category.toLowerCase())) {
+  if (!ALLOWED_CATEGORIES.has(normalizedCategory)) {
     return {
       status: 400,
       jsonBody: {
@@ -183,7 +184,7 @@ export async function postGarment(
     const garment = await createGarment({
       userId,
       name,
-      category,
+      category: normalizedCategory,
       catalogImageUrls,
       ...(embeddings.length > 0 ? { catalogEmbeddings: embeddings } : {}),
     });
@@ -199,7 +200,7 @@ export async function postGarment(
     // ── Custom telemetry (Issue #14) ──────────────────────────────────────
     trackEvent(
       "GarmentCreated",
-      { userId, garmentId: garment.id, category },
+      { userId, garmentId: garment.id, category: normalizedCategory },
       { photoCount: catalogImageUrls.length, embeddingCount: embeddings.length }
     );
 
