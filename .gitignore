@@ -36,3 +36,4 @@ coverage/
 
 # Bicep ARM template build artifacts
 infra/*.json
+infra/modules/*.json

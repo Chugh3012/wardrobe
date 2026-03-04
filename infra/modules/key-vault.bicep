@@ -1,9 +1,10 @@
 // Provisions an Azure Key Vault for storing secrets used by the backend
 // (Custom Vision API keys, AI Vision API keys, etc.).
 //
-// Secrets are managed via the Azure Portal or `az keyvault secret set`.
-// The Function App accesses secrets through Key Vault references in App
-// Settings, authenticated by its System-assigned Managed Identity.
+// Secrets are auto-populated by key-vault-secrets.bicep using listKeys()
+// from the Cognitive Services accounts. The Function App accesses secrets
+// through Key Vault references in App Settings, authenticated by its
+// System-assigned Managed Identity.
 //
 // ── Secret Rotation Schedule (S14) ──────────────────────────────────────────
 // AI service API keys stored in this vault MUST be rotated on a regular
