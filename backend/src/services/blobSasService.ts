@@ -5,6 +5,7 @@ import {
   SASProtocol,
 } from "@azure/storage-blob";
 import { DefaultAzureCredential } from "@azure/identity";
+import { isValidImageUrl } from "./urlValidator.js";
 
 /** SAS token validity for read access — 1 hour. */
 const READ_TTL_SECONDS = 60 * 60;
@@ -36,8 +37,9 @@ export function stripQueryParams(url: string): string {
  * Uses a single user-delegation key for the entire batch, keeping the
  * round-trip to Azure AD to one request per call.
  *
- * Any URL that is `null`, not a `*.blob.core.windows.net` URL, or
- * otherwise unparseable is returned as-is.  When `BLOB_ACCOUNT_NAME`
+ * Any URL that is `null`, fails `isValidImageUrl()` validation (not a valid
+ * HTTPS `*.blob.core.windows.net` URL, wrong account, or private IP), or
+ * otherwise unparseable is returned as `null`.  When `BLOB_ACCOUNT_NAME`
  * is not configured the input array is returned unchanged.
  */
 export async function generateReadSasUrls(
@@ -58,18 +60,16 @@ export async function generateReadSasUrls(
   return urls.map((url) => {
     if (!url) return null;
 
-    let parsed: URL;
-    try {
-      parsed = new URL(url);
-    } catch {
-      return url;
-    }
+    // Defense-in-depth: re-validate every URL before generating a SAS token.
+    // Returns null for unparseable URLs, non-HTTPS, wrong account, or private IPs.
+    if (!isValidImageUrl(url)) return null;
 
-    if (!parsed.hostname.endsWith(".blob.core.windows.net")) return url;
-
+    // isValidImageUrl() already verified this URL is parseable, so the
+    // second new URL() call here is guaranteed to succeed.
+    const parsed = new URL(url);
     const cleanUrl = `${parsed.origin}${parsed.pathname}`;
     const pathParts = parsed.pathname.split("/").filter(Boolean);
-    if (pathParts.length < 2) return url;
+    if (pathParts.length < 2) return null;
 
     const containerName = pathParts[0];
     const blobName = pathParts.slice(1).join("/");
