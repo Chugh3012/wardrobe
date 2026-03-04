@@ -47,7 +47,7 @@ export default defineConfig({
     },
     {
       name: 'ui-mobile',
-      testMatch: /ui-.*\.spec\.ts/,
+      testMatch: /(ui-.*|user-journeys|real-backend)\.spec\.ts/,
       use: {
         ...devices['iPhone 14'],
         baseURL: LOCAL_UI_BASE,
@@ -56,7 +56,7 @@ export default defineConfig({
     },
     {
       name: 'ui-desktop',
-      testMatch: /ui-.*\.spec\.ts/,
+      testMatch: /(ui-.*|user-journeys|real-backend)\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         baseURL: LOCAL_UI_BASE,

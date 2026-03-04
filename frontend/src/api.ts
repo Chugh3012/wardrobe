@@ -13,6 +13,14 @@
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { msalInstance, apiScopes, apiBaseUrl } from './msalConfig';
 
+// ── Local dev auth bypass ────────────────────────────────────────────────────
+// When VITE_SKIP_AUTH=true, we don't acquire MSAL tokens. The Vite proxy
+// (or mock API) injects x-ms-client-principal-id automatically.
+// Evaluated as a function (not a constant) so tests can control it via vi.stubEnv.
+function isAuthSkipped(): boolean {
+  return import.meta.env.VITE_SKIP_AUTH === 'true';
+}
+
 // ── Shared types ─────────────────────────────────────────────────────────────
 
 export interface GarmentSummary {
@@ -117,8 +125,13 @@ export interface CreatedGarment {
  * Acquire an AAD access token silently (from cache/refresh).
  * Falls back to an interactive redirect when silent acquisition fails.
  * Returns the raw Bearer token string.
+ *
+ * When VITE_SKIP_AUTH is enabled (local dev), returns an empty string
+ * and the Authorization header is omitted from requests.
  */
 async function getAccessToken(): Promise<string> {
+  if (isAuthSkipped()) return '';
+
   const accounts = msalInstance.getAllAccounts();
   if (accounts.length === 0) {
     // No cached accounts — trigger interactive login
@@ -149,7 +162,9 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getAccessToken();
   const url = `${apiBaseUrl}${path}`;
   const headers = new Headers(init?.headers);
-  headers.set('Authorization', `Bearer ${token}`);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
 
   const res = await fetch(url, { ...init, headers });
   if (!res.ok) {
@@ -275,9 +290,11 @@ export async function confirmWear(
 export async function deleteWearEvent(id: string): Promise<void> {
   const token = await getAccessToken();
   const url = `${apiBaseUrl}/api/wear/events/${encodeURIComponent(id)}`;
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(url, {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers,
   });
   if (!res.ok) {
     let message = `Request failed (${res.status})`;

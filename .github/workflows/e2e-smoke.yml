@@ -1,0 +1,118 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Post-Deploy E2E Smoke Tests
+#
+# Runs API endpoint and Azure resource verification tests against the live
+# deployed environment after a successful deploy. Can also be triggered
+# manually for on-demand smoke testing.
+#
+# This workflow requires Azure credentials (OIDC) to:
+#   - Verify Azure resource configuration
+#   - Hit the live Function App API endpoints
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: E2E Smoke — Post Deploy
+
+on:
+  workflow_run:
+    workflows:
+      - 'Deploy Backend to Azure Functions'
+      - 'Deploy Frontend to Azure Static Web Apps'
+    types: [completed]
+    branches: [main]
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment to test'
+        required: true
+        default: 'dev'
+        type: choice
+        options: [dev, staging, prod]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke Tests (${{ github.event.inputs.environment || 'dev' }})
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Install E2E dependencies
+        working-directory: e2e
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve deployment URLs
+        id: urls
+        run: |
+          env="${{ github.event.inputs.environment || 'dev' }}"
+          rg="rg-wardrobe-${env}"
+
+          # Get Function App URL
+          func_url="https://func-wardrobe-${env}.azurewebsites.net"
+          echo "func_url=${func_url}" >> "$GITHUB_OUTPUT"
+
+          # Get SWA URL
+          swa_url=$(az staticwebapp show \
+            --name "swa-wardrobe-${env}" \
+            --resource-group "$rg" \
+            --query "defaultHostname" \
+            --output tsv 2>/dev/null || echo "")
+          if [ -n "$swa_url" ]; then
+            swa_url="https://${swa_url}"
+          fi
+          echo "swa_url=${swa_url}" >> "$GITHUB_OUTPUT"
+          echo "rg=${rg}" >> "$GITHUB_OUTPUT"
+          echo "env=${env}" >> "$GITHUB_OUTPUT"
+
+      - name: Run API smoke tests
+        working-directory: e2e
+        run: npx playwright test --project=api-endpoints
+        env:
+          CI: 'true'
+          FUNC_URL: ${{ steps.urls.outputs.func_url }}
+          SWA_URL: ${{ steps.urls.outputs.swa_url }}
+          ENVIRONMENT_NAME: ${{ steps.urls.outputs.env }}
+          AZURE_RESOURCE_GROUP: ${{ steps.urls.outputs.rg }}
+
+      - name: Run Azure resource tests
+        working-directory: e2e
+        run: npx playwright test --project=azure-resources
+        env:
+          CI: 'true'
+          FUNC_URL: ${{ steps.urls.outputs.func_url }}
+          SWA_URL: ${{ steps.urls.outputs.swa_url }}
+          ENVIRONMENT_NAME: ${{ steps.urls.outputs.env }}
+          AZURE_RESOURCE_GROUP: ${{ steps.urls.outputs.rg }}
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-report
+          path: e2e/playwright-report/
+          retention-days: 14

@@ -30,7 +30,7 @@
     "http": {
       "maxConcurrentRequests": 100,
       "maxOutstandingRequests": 200,
-      "maxRequestBytes": 5242880
+      "maxRequestBytes": 102400
     }
   },
   "extensionBundle": {

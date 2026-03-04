@@ -166,18 +166,21 @@ export async function generateSasUrl(
     const client = getBlobServiceClient(blobAccountName);
 
     const now = new Date();
+    // Start 5 minutes in the past to account for clock skew between
+    // the local machine and Azure Storage servers.
+    const start = new Date(now.getTime() - 5 * 60 * 1000);
     const uploadExpiry = new Date(now.getTime() + UPLOAD_TTL_SECONDS * 1000);
     const readExpiry = new Date(now.getTime() + READ_TTL_SECONDS * 1000);
 
     // Obtain a user-delegation key — requires Storage Blob Delegator role on the MI.
-    const delegationKey = await client.getUserDelegationKey(now, readExpiry);
+    const delegationKey = await client.getUserDelegationKey(start, readExpiry);
 
     const uploadSas = generateBlobSASQueryParameters(
       {
         containerName: blobContainerName,
         blobName,
         permissions: BlobSASPermissions.parse("cw"), // create + write
-        startsOn: now,
+        startsOn: start,
         expiresOn: uploadExpiry,
         protocol: SASProtocol.Https,
         contentType, // SEC-P6: restrict upload to declared MIME type
@@ -191,7 +194,7 @@ export async function generateSasUrl(
         containerName: blobContainerName,
         blobName,
         permissions: BlobSASPermissions.parse("r"), // read
-        startsOn: now,
+        startsOn: start,
         expiresOn: readExpiry,
         protocol: SASProtocol.Https,
       },

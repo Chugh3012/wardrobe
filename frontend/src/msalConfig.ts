@@ -13,8 +13,13 @@
 
 import { PublicClientApplication, type Configuration } from '@azure/msal-browser';
 
-const clientId = import.meta.env.VITE_AAD_CLIENT_ID ?? '51fbad72-f951-47c6-b1be-bf5f6c01c476';
-const tenantId = import.meta.env.VITE_AAD_TENANT_ID ?? '9a40715f-4db6-4dcd-8973-68db2b112fd8';
+/**
+ * AAD Client ID and Tenant ID MUST be provided via environment variables.
+ * No hardcoded fallbacks — prevents accidental exposure of real IDs in source.
+ * In local dev with VITE_SKIP_AUTH=true, these are not used at all.
+ */
+const clientId = import.meta.env.VITE_AAD_CLIENT_ID ?? '';
+const tenantId = import.meta.env.VITE_AAD_TENANT_ID ?? '';
 
 export const msalConfig: Configuration = {
   auth: {
@@ -31,9 +36,8 @@ export const msalConfig: Configuration = {
 /** Scopes required when calling the backend Function App API. */
 export const apiScopes = [`api://${clientId}/access_as_user`];
 
-/** Base URL for the backend Function App. */
-export const apiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL ?? 'https://func-wardrobe-dev.azurewebsites.net';
+/** Base URL for the backend Function App. Empty string = same origin (Vite proxy). */
+export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
 
 /** Singleton MSAL instance — initialised once, used everywhere. */
 export const msalInstance = new PublicClientApplication(msalConfig);

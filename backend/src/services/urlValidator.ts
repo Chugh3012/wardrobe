@@ -23,7 +23,7 @@ const PRIVATE_IP_PATTERNS: RegExp[] = [
 /**
  * Returns true if `url` is a safe image URL that may be forwarded to
  * Azure AI services.  Returns false for any URL that is non-HTTPS, outside
- * the Azure Blob Storage domain, or that targets a private/internal address.
+ * the app's own Azure Blob Storage domain, or that targets a private/internal address.
  */
 export function isValidImageUrl(url: string): boolean {
   let parsed: URL;
@@ -39,6 +39,13 @@ export function isValidImageUrl(url: string): boolean {
   // Hostname must be *.blob.core.windows.net.
   const hostname = parsed.hostname.toLowerCase();
   if (!hostname.endsWith(".blob.core.windows.net")) return false;
+
+  // M13: Restrict to the app's own blob account if configured (SSRF prevention).
+  const expectedAccount = process.env["BLOB_ACCOUNT_NAME"];
+  if (expectedAccount) {
+    const expectedHost = `${expectedAccount}.blob.core.windows.net`;
+    if (hostname !== expectedHost) return false;
+  }
 
   // Reject private / link-local addresses (defense-in-depth).
   if (PRIVATE_IP_PATTERNS.some((re) => re.test(hostname))) return false;
