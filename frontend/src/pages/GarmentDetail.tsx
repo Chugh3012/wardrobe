@@ -162,7 +162,13 @@ export default function GarmentDetail({ garmentId, onBack }: GarmentDetailProps)
 
       {/* ── Confirmation dialog ────────────────────────────────── */}
       {showConfirm && (
-        <div className={styles.overlay} role="dialog" aria-modal="true" aria-label="Confirm deletion">
+        <div
+          className={styles.overlay}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirm deletion"
+          onKeyDown={(e) => { if (e.key === 'Escape' && !deleting) setShowConfirm(false); }}
+        >
           <div className={styles.confirmDialog}>
             <p className={styles.confirmText}>
               Are you sure you want to delete <strong>{garment.name}</strong>? This action cannot be undone.
