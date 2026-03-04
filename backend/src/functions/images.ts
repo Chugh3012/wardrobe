@@ -72,6 +72,13 @@ export async function generateSasUrl(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  // ── Authenticate (S1) ────────────────────────────────────────────────────
+  const userId = extractUserId(request);
+
+  if (!userId) {
+    return unauthorizedResponse();
+  }
+
   // ── Parse JSON body ───────────────────────────────────────────────────────
   let body: { blobName?: unknown; contentType?: unknown };
   try {
@@ -81,13 +88,6 @@ export async function generateSasUrl(
       status: 400,
       jsonBody: { error: "Invalid JSON body." },
     };
-  }
-
-  // ── Authenticate (S1) ────────────────────────────────────────────────────
-  const userId = extractUserId(request);
-
-  if (!userId) {
-    return unauthorizedResponse();
   }
 
   // Read env vars at call time so tests can stub them per-test.

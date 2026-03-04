@@ -165,11 +165,27 @@ describe("POST /api/images/sas-url", () => {
     const request = new HttpRequest({
       method: "POST",
       url: "http://localhost:7071/api/images/sas-url",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-ms-client-principal": encodeClientPrincipal("user-1"),
+      },
       body: { string: "not-json{{" },
     });
     const res = await generateSasUrl(request, makeContext());
     expect(res.status).toBe(400);
+  });
+
+  it("returns 401 before parsing body when auth header is missing (even with invalid JSON)", async () => {
+    const { generateSasUrl } = await import("./images.js");
+    const request = new HttpRequest({
+      method: "POST",
+      url: "http://localhost:7071/api/images/sas-url",
+      headers: { "Content-Type": "application/json" },
+      body: { string: "not-json{{" },
+    });
+    const res = await generateSasUrl(request, makeContext());
+    expect(res.status).toBe(401);
+    expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
   });
 
   it("returns 200 with uploadUrl and readUrl on success", async () => {

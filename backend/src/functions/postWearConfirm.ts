@@ -47,6 +47,13 @@ export async function postWearConfirm(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  // ── Authenticate ──────────────────────────────────────────────────────────
+  const userId = extractUserId(request);
+
+  if (!userId) {
+    return unauthorizedResponse();
+  }
+
   // ── Parse JSON body ───────────────────────────────────────────────────────
   let body: PostWearConfirmBody;
   try {
@@ -56,13 +63,6 @@ export async function postWearConfirm(
       status: 400,
       jsonBody: { error: "Invalid JSON body." },
     };
-  }
-
-  // ── Authenticate ──────────────────────────────────────────────────────────
-  const userId = extractUserId(request);
-
-  if (!userId) {
-    return unauthorizedResponse();
   }
 
   // ── Validate required fields ──────────────────────────────────────────────

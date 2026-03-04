@@ -42,6 +42,13 @@ export async function postWearPredict(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  // ── Authenticate ──────────────────────────────────────────────────────────
+  const userId = extractUserId(request);
+
+  if (!userId) {
+    return unauthorizedResponse();
+  }
+
   // ── Parse JSON body ───────────────────────────────────────────────────────
   let body: PostWearPredictBody;
   try {
@@ -51,13 +58,6 @@ export async function postWearPredict(
       status: 400,
       jsonBody: { error: "Invalid JSON body." },
     };
-  }
-
-  // ── Authenticate ──────────────────────────────────────────────────────────
-  const userId = extractUserId(request);
-
-  if (!userId) {
-    return unauthorizedResponse();
   }
 
   // ── Validate required fields ──────────────────────────────────────────────

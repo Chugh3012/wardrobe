@@ -182,12 +182,28 @@ describe("POST /api/wear/predict", () => {
     const request = new HttpRequest({
       method: "POST",
       url: "http://localhost:7071/api/wear/predict",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-ms-client-principal": encodeClientPrincipal("user-1"),
+      },
       body: { string: "not-json{{" },
     });
     const res = await postWearPredict(request, makeContext());
     expect(res.status).toBe(400);
     expect((res.jsonBody as { error: string }).error).toContain("Invalid JSON");
+  });
+
+  it("returns 401 before parsing body when auth header is missing (even with invalid JSON)", async () => {
+    const { postWearPredict } = await import("./postWearPredict.js");
+    const request = new HttpRequest({
+      method: "POST",
+      url: "http://localhost:7071/api/wear/predict",
+      headers: { "Content-Type": "application/json" },
+      body: { string: "not-json{{" },
+    });
+    const res = await postWearPredict(request, makeContext());
+    expect(res.status).toBe(401);
+    expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
   });
 
   // ── Missing required fields ───────────────────────────────────────────────

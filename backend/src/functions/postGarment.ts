@@ -66,6 +66,13 @@ export async function postGarment(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
+  // ── Authenticate ───────────────────────────────────────────────────────────
+  const userId = extractUserId(request);
+
+  if (!userId) {
+    return unauthorizedResponse();
+  }
+
   let body: PostGarmentBody;
   try {
     body = (await request.json()) as PostGarmentBody;
@@ -74,13 +81,6 @@ export async function postGarment(
       status: 400,
       jsonBody: { error: "Invalid JSON body." },
     };
-  }
-
-  // ── Authenticate ───────────────────────────────────────────────────────────
-  const userId = extractUserId(request);
-
-  if (!userId) {
-    return unauthorizedResponse();
   }
 
   // ── Validate required fields ───────────────────────────────────────────────
