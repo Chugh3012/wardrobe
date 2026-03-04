@@ -47,7 +47,7 @@ export default defineConfig({
     },
     {
       name: 'ui-mobile',
-      testMatch: /(ui-.*|user-journeys|real-backend)\.spec\.ts/,
+      testMatch: /(ui-.*|user-journeys)\.spec\.ts/,
       use: {
         ...devices['iPhone 14'],
         baseURL: LOCAL_UI_BASE,
@@ -56,7 +56,19 @@ export default defineConfig({
     },
     {
       name: 'ui-desktop',
-      testMatch: /(ui-.*|user-journeys|real-backend)\.spec\.ts/,
+      testMatch: /(ui-.*|user-journeys)\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: LOCAL_UI_BASE,
+        serviceWorkers: 'block',
+      },
+    },
+    /* Real backend tests — only run locally with `--project=real-backend`.
+     * These hit live Azure services (Cosmos DB, Blob Storage) and require
+     * the real Functions backend running on localhost:7071. */
+    {
+      name: 'real-backend',
+      testMatch: /real-backend\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         baseURL: LOCAL_UI_BASE,
