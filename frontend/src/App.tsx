@@ -8,6 +8,7 @@ import History from './pages/History';
 import GarmentDetail from './pages/GarmentDetail';
 import { trackPageView } from './telemetry';
 import { msalInstance, apiScopes } from './msalConfig';
+import styles from './App.module.css';
 
 export type Page = 'dashboard' | 'catalog' | 'add' | 'upload' | 'history' | 'garment-detail';
 
@@ -60,10 +61,10 @@ export default function App() {
 
   if (authError) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'system-ui, sans-serif', color: '#dc2626', gap: '1rem', padding: '1rem', textAlign: 'center' }}>
+      <div className={styles.authError}>
         <div>Authentication error</div>
-        <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{authError}</div>
-        <button onClick={() => window.location.reload()} style={{ padding: '0.5rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', cursor: 'pointer', background: 'white' }}>
+        <div className={styles.authErrorDetail}>{authError}</div>
+        <button onClick={() => window.location.reload()} className={styles.authErrorButton}>
           Retry
         </button>
       </div>
@@ -72,7 +73,7 @@ export default function App() {
 
   if (!authChecked) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'system-ui, sans-serif', color: '#6b7280' }}>
+      <div className={styles.signingIn}>
         Signing in…
       </div>
     );
