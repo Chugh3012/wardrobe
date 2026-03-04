@@ -21,6 +21,77 @@ function isAuthSkipped(): boolean {
   return import.meta.env.VITE_SKIP_AUTH === 'true';
 }
 
+// ── Response cache ────────────────────────────────────────────────────────────
+// Simple in-memory cache with TTL + in-flight request deduplication.
+// Avoids redundant GET calls when navigating between pages.
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const cache = new Map<string, CacheEntry<unknown>>();
+const inflight = new Map<string, Promise<unknown>>();
+
+/** How long cached GET responses stay fresh (ms). */
+export const CACHE_TTL_MS = 300_000; // 5 minutes
+
+function getCached<T>(key: string): T | undefined {
+  const entry = cache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+    cache.delete(key);
+    return undefined;
+  }
+  return entry.data as T;
+}
+
+function setCache<T>(key: string, data: T): void {
+  cache.set(key, { data, timestamp: Date.now() });
+}
+
+/**
+ * Fetch with caching + in-flight dedup.
+ * Returns cached data if fresh, otherwise makes the request and caches it.
+ * Concurrent calls to the same path share a single in-flight promise.
+ */
+async function cachedApiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const cached = getCached<T>(path);
+  if (cached) return cached;
+
+  const existing = inflight.get(path);
+  if (existing) return existing as Promise<T>;
+
+  const promise = apiFetch<T>(path, init)
+    .then((data) => {
+      setCache(path, data);
+      inflight.delete(path);
+      return data;
+    })
+    .catch((err) => {
+      inflight.delete(path);
+      throw err;
+    });
+
+  inflight.set(path, promise);
+  return promise;
+}
+
+/** Invalidate all cache entries whose keys start with any of the given prefixes. */
+function invalidateCache(...prefixes: string[]): void {
+  for (const key of cache.keys()) {
+    if (prefixes.some((p) => key.startsWith(p))) {
+      cache.delete(key);
+    }
+  }
+}
+
+/** Clear the entire API response cache. Useful after sign-out or for testing. */
+export function clearApiCache(): void {
+  cache.clear();
+  inflight.clear();
+}
+
 // ── Shared types ─────────────────────────────────────────────────────────────
 
 export interface GarmentSummary {
@@ -200,7 +271,7 @@ export async function fetchGarments(
   if (pageSize) params.set('pageSize', String(pageSize));
   if (continuationToken) params.set('continuationToken', continuationToken);
   const qs = params.toString();
-  return apiFetch<GarmentListResponse>(`/api/garments${qs ? `?${qs}` : ''}`);
+  return cachedApiFetch<GarmentListResponse>(`/api/garments${qs ? `?${qs}` : ''}`);
 }
 
 /**
@@ -211,11 +282,13 @@ export async function createGarment(
   category: string,
   catalogImageUrls: string[],
 ): Promise<CreatedGarment> {
-  return apiFetch<CreatedGarment>('/api/garments', {
+  const result = await apiFetch<CreatedGarment>('/api/garments', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, category, catalogImageUrls }),
   });
+  invalidateCache('/api/garments', '/api/stats');
+  return result;
 }
 
 // ── Images ───────────────────────────────────────────────────────────────────
@@ -277,11 +350,13 @@ export async function confirmWear(
   confirmedGarmentId: string,
   confirmed: boolean,
 ): Promise<WearEvent> {
-  return apiFetch<WearEvent>('/api/wear/confirm', {
+  const result = await apiFetch<WearEvent>('/api/wear/confirm', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ predictionAuditId, confirmedGarmentId, confirmed }),
   });
+  invalidateCache('/api/stats', '/api/wear/history', '/api/garments');
+  return result;
 }
 
 /**
@@ -309,6 +384,7 @@ export async function deleteWearEvent(id: string): Promise<void> {
     }
     throw new Error(message);
   }
+  invalidateCache('/api/stats', '/api/wear/history', '/api/garments');
 }
 
 // ── Stats ────────────────────────────────────────────────────────────────────
@@ -317,7 +393,7 @@ export async function deleteWearEvent(id: string): Promise<void> {
  * GET /api/stats/summary — get wear statistics for the dashboard.
  */
 export async function fetchStatsSummary(): Promise<StatsSummary> {
-  return apiFetch<StatsSummary>('/api/stats/summary');
+  return cachedApiFetch<StatsSummary>('/api/stats/summary');
 }
 
 /**
@@ -331,5 +407,5 @@ export async function fetchWearHistory(
   if (pageSize) params.set('pageSize', String(pageSize));
   if (continuationToken) params.set('continuationToken', continuationToken);
   const qs = params.toString();
-  return apiFetch<WearHistoryResponse>(`/api/wear/history${qs ? `?${qs}` : ''}`);
+  return cachedApiFetch<WearHistoryResponse>(`/api/wear/history${qs ? `?${qs}` : ''}`);
 }

@@ -39,12 +39,13 @@ vi.stubEnv('VITE_SKIP_AUTH', '');
 
 // ── Import after mocks ─────────────────────────────────────────────────────
 
-const { fetchGarments, fetchStatsSummary, fetchWearHistory, createGarment, getSasUrl, predictOutfit, confirmWear, deleteWearEvent } = await import('./api');
+const { fetchGarments, fetchStatsSummary, fetchWearHistory, createGarment, getSasUrl, predictOutfit, confirmWear, deleteWearEvent, clearApiCache } = await import('./api');
 
 // ── Setup ───────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
   vi.clearAllMocks();
+  clearApiCache();
   mockGetAllAccounts.mockReturnValue([{ username: 'test@test.com' }]);
   mockAcquireTokenSilent.mockResolvedValue({ accessToken: 'mock-token-123' });
 });
@@ -200,6 +201,94 @@ describe('API Client', () => {
       mockFetch.mockResolvedValue(mockJsonResponse(404, { error: 'Not found' }));
 
       await expect(deleteWearEvent('bad-id')).rejects.toThrow();
+    });
+  });
+
+  // ── Caching behaviour ──────────────────────────────────────────────────────
+
+  describe('caching', () => {
+    it('returns cached data on second call within TTL', async () => {
+      const stats = { totalGarments: 5, totalWearEvents: 20 };
+      mockFetch.mockResolvedValue(mockJsonResponse(200, stats));
+
+      const first = await fetchStatsSummary();
+      const second = await fetchStatsSummary();
+
+      expect(mockFetch).toHaveBeenCalledOnce();
+      expect(first).toEqual(second);
+    });
+
+    it('caches fetchGarments by query params', async () => {
+      mockFetch.mockResolvedValue(mockJsonResponse(200, { garments: [{ id: 'g1' }] }));
+
+      await fetchGarments(10);
+      await fetchGarments(10);
+
+      expect(mockFetch).toHaveBeenCalledOnce();
+    });
+
+    it('treats different query params as separate cache keys', async () => {
+      mockFetch.mockResolvedValue(mockJsonResponse(200, { garments: [] }));
+
+      await fetchGarments(10);
+      await fetchGarments(20);
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('invalidates garments + stats cache after createGarment', async () => {
+      const stats = { totalGarments: 1, totalWearEvents: 0 };
+      mockFetch.mockResolvedValue(mockJsonResponse(200, stats));
+      await fetchStatsSummary(); // populate cache
+
+      // createGarment call
+      const created = { id: 'g1', name: 'Shirt', category: 'top', wearCount: 0 };
+      mockFetch.mockResolvedValue(mockJsonResponse(201, created));
+      await createGarment('Shirt', 'top', []);
+
+      // stats cache should be invalidated — next call should hit network
+      mockFetch.mockResolvedValue(mockJsonResponse(200, { ...stats, totalGarments: 2 }));
+      const refreshed = await fetchStatsSummary();
+      expect(refreshed.totalGarments).toBe(2);
+      expect(mockFetch).toHaveBeenCalledTimes(3); // initial + create + re-fetch
+    });
+
+    it('invalidates stats + history cache after confirmWear', async () => {
+      mockFetch.mockResolvedValue(mockJsonResponse(200, { events: [] }));
+      await fetchWearHistory();
+
+      mockFetch.mockResolvedValue(mockJsonResponse(200, { id: 'we1', confirmed: true }));
+      await confirmWear('pa1', 'g1', true);
+
+      mockFetch.mockResolvedValue(mockJsonResponse(200, { events: [{ id: 'we1' }] }));
+      const result = await fetchWearHistory();
+      expect(result.events).toHaveLength(1);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('invalidates cache after deleteWearEvent', async () => {
+      mockFetch.mockResolvedValue(mockJsonResponse(200, { events: [{ id: 'we1' }] }));
+      await fetchWearHistory();
+
+      mockFetch.mockResolvedValue({ ok: true, status: 200, headers: new Headers() });
+      await deleteWearEvent('we1');
+
+      mockFetch.mockResolvedValue(mockJsonResponse(200, { events: [] }));
+      const result = await fetchWearHistory();
+      expect(result.events).toHaveLength(0);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('clearApiCache forces re-fetch', async () => {
+      mockFetch.mockResolvedValue(mockJsonResponse(200, { totalGarments: 1 }));
+      await fetchStatsSummary();
+
+      clearApiCache();
+
+      mockFetch.mockResolvedValue(mockJsonResponse(200, { totalGarments: 99 }));
+      const result = await fetchStatsSummary();
+      expect(result.totalGarments).toBe(99);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });
 });
