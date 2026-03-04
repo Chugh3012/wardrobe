@@ -78,8 +78,9 @@ export default defineConfig({
   ],
   /* Start Vite preview server for UI tests.
    * In CI, the dist/ is pre-built (downloaded artifact) — skip the build.
-   * Locally, build first then preview. */
-  webServer: {
+   * Locally, build first then preview.
+   * Disabled when running API/Azure smoke tests (FUNC_URL is set). */
+  webServer: process.env.FUNC_URL ? undefined : {
     command: process.env.CI
       ? 'cd ../frontend && npx vite preview --port 5173'
       : 'cd ../frontend && npm run build && npx vite preview --port 5173',
