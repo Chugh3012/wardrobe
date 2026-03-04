@@ -10,6 +10,7 @@ import {
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
 import { trackException } from "../services/telemetryService.js";
+import { generateReadSasUrls } from "../services/blobSasService.js";
 
 /**
  * GET /api/garments
@@ -56,12 +57,19 @@ export async function getGarments(
       continuationToken,
     );
 
-    const items = garments.map((g) => ({
+    const rawThumbnails = garments.map((g) =>
+      g.catalogImageUrls.length > 0 ? g.catalogImageUrls[0] : null,
+    );
+
+    // Generate fresh read SAS URLs so thumbnails remain accessible (Issue #37).
+    const freshThumbnails = await generateReadSasUrls(rawThumbnails);
+
+    const items = garments.map((g, i) => ({
       id: g.id,
       name: g.name,
       category: g.category,
       wearCount: g.wearCount,
-      thumbnailUrl: g.catalogImageUrls.length > 0 ? g.catalogImageUrls[0] : null,
+      thumbnailUrl: freshThumbnails[i],
     }));
 
     context.log(`Listed ${items.length} garment(s) for user ${userId}`);

@@ -51,7 +51,8 @@ export default function AddGarment({ onBack }: AddGarmentProps) {
         const blobName = `garments/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
         const sas = await getSasUrl(blobName, file.type || 'image/jpeg');
         await uploadToBlob(sas.uploadUrl, file);
-        readUrls.push(sas.readUrl);
+        const baseUrl = new URL(sas.readUrl);
+        readUrls.push(`${baseUrl.origin}${baseUrl.pathname}`);
       }
       // Create garment record
       await createGarment(name.trim(), category, readUrls);

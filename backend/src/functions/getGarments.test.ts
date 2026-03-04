@@ -27,6 +27,12 @@ vi.mock("@azure/identity", () => ({
   }),
 }));
 
+// Mock blobSasService — by default pass URLs through with a fresh SAS token appended
+const mockGenerateReadSasUrls = vi.fn();
+vi.mock("../services/blobSasService.js", () => ({
+  generateReadSasUrls: (...args: unknown[]) => mockGenerateReadSasUrls(...args),
+}));
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function encodeClientPrincipal(userId: string): string {
@@ -55,6 +61,11 @@ describe("GET /api/garments", () => {
     vi.stubEnv("COSMOS_DB_DATABASE_NAME", "wardrobe");
     resetClient();
     vi.clearAllMocks();
+
+    // Default: append a fresh SAS token to each URL (pass null through as-is)
+    mockGenerateReadSasUrls.mockImplementation(async (urls: (string | null)[]) =>
+      urls.map((u) => (u ? `${u}?sv=2023&sig=fresh` : null)),
+    );
   });
 
   afterEach(() => {
@@ -98,14 +109,14 @@ describe("GET /api/garments", () => {
         name: "Blue Shirt",
         category: "top",
         wearCount: 3,
-        thumbnailUrl: "https://blob.example.com/img1.jpg",
+        thumbnailUrl: "https://blob.example.com/img1.jpg?sv=2023&sig=fresh",
       },
       {
         id: "g2",
         name: "Red Dress",
         category: "dress",
         wearCount: 1,
-        thumbnailUrl: "https://blob.example.com/img3.jpg",
+        thumbnailUrl: "https://blob.example.com/img3.jpg?sv=2023&sig=fresh",
       },
     ]);
   });
