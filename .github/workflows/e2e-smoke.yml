@@ -33,6 +33,12 @@ permissions:
   id-token: write
   contents: read
 
+# Only one smoke test at a time — if both deploys trigger it, the second
+# waits for the first to finish (or cancels it). Prevents duplicate runs.
+concurrency:
+  group: smoke-${{ github.event.inputs.environment || 'dev' }}
+  cancel-in-progress: true
+
 jobs:
   smoke:
     name: Smoke Tests (${{ github.event.inputs.environment || 'dev' }})
@@ -54,6 +60,13 @@ jobs:
       - name: Install E2E dependencies
         working-directory: e2e
         run: npm ci
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
 
       - name: Install Playwright browsers
         working-directory: e2e
