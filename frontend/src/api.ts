@@ -190,6 +190,12 @@ export interface CreatedGarment {
   updatedAt: string;
 }
 
+export interface GarmentUpdate {
+  name?: string;
+  category?: string;
+  catalogImageUrls?: string[];
+}
+
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -286,6 +292,22 @@ export async function createGarment(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, category, catalogImageUrls }),
+  });
+  invalidateCache('/api/garments', '/api/stats');
+  return result;
+}
+
+/**
+ * PATCH /api/garments/{id} — update an existing garment.
+ */
+export async function updateGarment(
+  id: string,
+  updates: GarmentUpdate,
+): Promise<CreatedGarment> {
+  const result = await apiFetch<CreatedGarment>(`/api/garments/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
   });
   invalidateCache('/api/garments', '/api/stats');
   return result;
