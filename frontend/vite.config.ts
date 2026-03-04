@@ -10,7 +10,9 @@ export default defineConfig({
       name: 'guard-skip-auth',
       apply: 'build',
       config(_, { command }) {
-        if (command === 'build' && process.env.VITE_SKIP_AUTH === 'true') {
+        // Block VITE_SKIP_AUTH in production builds, but allow it in CI
+        // where E2E tests need it for headless browser testing without MSAL.
+        if (command === 'build' && process.env.VITE_SKIP_AUTH === 'true' && !process.env.CI) {
           throw new Error(
             'SECURITY: VITE_SKIP_AUTH=true must not be set during production builds. '
             + 'Remove it from your environment or .env files before running `vite build`.'

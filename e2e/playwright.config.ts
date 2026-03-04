@@ -76,11 +76,15 @@ export default defineConfig({
       },
     },
   ],
-  /* Start Vite preview server for UI tests */
+  /* Start Vite preview server for UI tests.
+   * In CI, the dist/ is pre-built (downloaded artifact) — skip the build.
+   * Locally, build first then preview. */
   webServer: {
-    command: 'cd ../frontend && npm run build && npx vite preview --port 5173',
+    command: process.env.CI
+      ? 'cd ../frontend && npx vite preview --port 5173'
+      : 'cd ../frontend && npm run build && npx vite preview --port 5173',
     port: LOCAL_UI_PORT,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 60_000,
   },
 });
