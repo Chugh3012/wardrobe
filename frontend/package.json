@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "postbuild": "node scripts/generate-staticwebapp-config.mjs",
     "preview": "vite preview",
     "test": "vitest run"
   },

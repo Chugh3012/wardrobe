@@ -67,8 +67,8 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01'
             includeCorsLocalhost ? [ 'http://localhost:5173' ] : []
           )
           allowedMethods: [ 'PUT', 'GET', 'HEAD', 'OPTIONS' ]
-          allowedHeaders: [ '*' ]
-          exposedHeaders: [ '*' ]
+          allowedHeaders: [ 'content-type', 'x-ms-blob-type' ]
+          exposedHeaders: [ 'etag', 'x-ms-request-id' ]
           maxAgeInSeconds: 3600
         }
       ]
