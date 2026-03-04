@@ -105,6 +105,32 @@
 .errorText {
   font-size: 16px;
   color: var(--color-text);
+  margin-bottom: 16px;
+}
+
+.retryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 14px 28px;
+  border-radius: 12px;
+  min-height: 44px;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+  transition: transform 0.1s ease;
+  cursor: pointer;
+}
+
+.retryButton:active {
+  transform: scale(0.97);
+}
+
+.retryButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 /* ── Garment list (Most Worn / Least Worn) ───────────────────────────────── */

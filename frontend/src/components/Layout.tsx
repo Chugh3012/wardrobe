@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Header from './Header';
 import BottomNav from './BottomNav';
 import type { Page } from '../App';
 import styles from './Layout.module.css';
@@ -12,6 +13,7 @@ interface LayoutProps {
 export default function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   return (
     <div className={styles.layout}>
+      <Header />
       <main className={styles.main}>
         {children}
       </main>
