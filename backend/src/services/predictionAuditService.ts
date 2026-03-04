@@ -45,6 +45,10 @@ export async function readPredictionAudit(
 
 /**
  * Updates the userFinalSelection field on an existing PredictionAudit.
+ *
+ * Uses Cosmos DB ETag optimistic concurrency to prevent lost updates from
+ * concurrent requests. If another request modified the document between
+ * our read and replace, the 412 PreconditionFailed error is retried (up to 3 times).
  */
 export async function updatePredictionAudit(
   id: string,
@@ -52,16 +56,31 @@ export async function updatePredictionAudit(
   userFinalSelection: string
 ): Promise<PredictionAudit> {
   const container = getContainer();
-  const { resource: existing } = await container.item(id, userId).read<PredictionAudit>();
-  if (!existing) {
-    throw new Error(`PredictionAudit ${id} not found for user ${userId}.`);
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const { resource: existing, etag } = await container.item(id, userId).read<PredictionAudit>();
+    if (!existing) {
+      throw new Error(`PredictionAudit ${id} not found for user ${userId}.`);
+    }
+    const updated: PredictionAudit = { ...existing, userFinalSelection };
+    try {
+      const { resource } = await container.item(id, userId).replace<PredictionAudit>(updated, {
+        accessCondition: { type: "IfMatch", condition: etag! },
+      });
+      if (!resource) {
+        throw new Error("Cosmos DB replace returned no resource.");
+      }
+      return resource;
+    } catch (err: unknown) {
+      if (typeof err === "object" && err !== null && "code" in err && (err as { code: number }).code === 412) {
+        // Conflict — another request modified this document. Retry.
+        if (attempt === MAX_RETRIES - 1) throw err;
+        continue;
+      }
+      throw err;
+    }
   }
-  const updated: PredictionAudit = { ...existing, userFinalSelection };
-  const { resource } = await container.item(id, userId).replace<PredictionAudit>(updated);
-  if (!resource) {
-    throw new Error("Cosmos DB replace returned no resource.");
-  }
-  return resource;
+  throw new Error("updatePredictionAudit: max retries exceeded.");
 }
 
 /**
