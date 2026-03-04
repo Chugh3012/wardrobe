@@ -264,3 +264,137 @@
   color: var(--color-text);
   margin-bottom: 16px;
 }
+
+/* ── Edit form ────────────────────────────────────────────────────────────── */
+
+.editButtonRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+  padding: 0 4px;
+}
+
+.editButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 10px;
+  min-height: 36px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.editButton:active {
+  transform: scale(0.97);
+}
+
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.input,
+.select {
+  height: 48px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 16px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  appearance: none;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.input:focus,
+.select:focus {
+  border-color: var(--color-primary);
+}
+
+.select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%236b7280' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+.editActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.saveButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 12px 20px;
+  border-radius: 12px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.saveButton:active {
+  transform: scale(0.97);
+}
+
+.editCancelButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 600;
+  padding: 12px 20px;
+  border-radius: 12px;
+  min-height: 44px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.editCancelButton:active {
+  transform: scale(0.97);
+}
+
+.formError {
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.successBanner {
+  background: #f0fdf4;
+  color: #166534;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  margin: 0 0 16px;
+}

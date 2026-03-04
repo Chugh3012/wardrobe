@@ -39,7 +39,7 @@ vi.stubEnv('VITE_SKIP_AUTH', '');
 
 // ── Import after mocks ─────────────────────────────────────────────────────
 
-const { fetchGarments, fetchStatsSummary, fetchWearHistory, createGarment, getSasUrl, predictOutfit, confirmWear, deleteWearEvent, deleteGarment, clearApiCache } = await import('./api');
+const { fetchGarments, fetchStatsSummary, fetchWearHistory, createGarment, updateGarment, getSasUrl, predictOutfit, confirmWear, deleteWearEvent, deleteGarment, clearApiCache } = await import('./api');
 
 // ── Setup ───────────────────────────────────────────────────────────────────
 
@@ -113,6 +113,36 @@ describe('API Client', () => {
       expect(body.name).toBe('Shirt');
       expect(body.category).toBe('top');
       expect(result).toEqual(created);
+    });
+  });
+
+  describe('updateGarment', () => {
+    it('sends PATCH /api/garments/:id with body', async () => {
+      const updated = { id: 'g1', name: 'New Name', category: 'top', wearCount: 3 };
+      mockFetch.mockResolvedValue(mockJsonResponse(200, updated));
+
+      const result = await updateGarment('g1', { name: 'New Name' });
+
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('http://localhost:7071/api/garments/g1');
+      expect(init.method).toBe('PATCH');
+      const body = JSON.parse(init.body);
+      expect(body.name).toBe('New Name');
+      expect(result).toEqual(updated);
+    });
+
+    it('invalidates garments + stats cache after updateGarment', async () => {
+      const stats = { totalGarments: 1, totalWearEvents: 0 };
+      mockFetch.mockResolvedValue(mockJsonResponse(200, stats));
+      await fetchStatsSummary();
+
+      const updated = { id: 'g1', name: 'Updated', category: 'top', wearCount: 0 };
+      mockFetch.mockResolvedValue(mockJsonResponse(200, updated));
+      await updateGarment('g1', { name: 'Updated' });
+
+      mockFetch.mockResolvedValue(mockJsonResponse(200, { ...stats, totalGarments: 1 }));
+      await fetchStatsSummary();
+      expect(mockFetch).toHaveBeenCalledTimes(3);
     });
   });
 
