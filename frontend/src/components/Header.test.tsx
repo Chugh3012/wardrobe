@@ -16,6 +16,10 @@ const { mockClearApiCache } = vi.hoisted(() => ({
   mockClearApiCache: vi.fn(),
 }));
 
+const { mockTrackError } = vi.hoisted(() => ({
+  mockTrackError: vi.fn(),
+}));
+
 vi.mock('../msalConfig', () => ({
   msalInstance: {
     logoutRedirect: mockLogoutRedirect,
@@ -26,6 +30,10 @@ vi.mock('../msalConfig', () => ({
 
 vi.mock('../api', () => ({
   clearApiCache: mockClearApiCache,
+}));
+
+vi.mock('../telemetry', () => ({
+  trackError: mockTrackError,
 }));
 
 import Header from './Header';
@@ -84,18 +92,16 @@ describe('Header', () => {
     expect(button).toHaveFocus();
   });
 
-  it('logs error when logoutRedirect fails', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockLogoutRedirect.mockRejectedValue(new Error('Logout failed'));
+  it('calls trackError when logoutRedirect fails', async () => {
+    const logoutError = new Error('Logout failed');
+    mockLogoutRedirect.mockRejectedValue(logoutError);
 
     render(React.createElement(Header));
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
 
     await vi.waitFor(() => {
-      expect(consoleError).toHaveBeenCalledWith('Sign-out failed:', expect.any(Error));
+      expect(mockTrackError).toHaveBeenCalledWith(logoutError);
     });
-
-    consoleError.mockRestore();
   });
 });

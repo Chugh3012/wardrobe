@@ -1,5 +1,6 @@
 import { msalInstance } from '../msalConfig';
 import { clearApiCache } from '../api';
+import { trackError } from '../telemetry';
 import styles from './Header.module.css';
 
 /** Sign out: clear cached API data then redirect to AAD logout. */
@@ -8,7 +9,7 @@ async function handleSignOut(): Promise<void> {
   try {
     await msalInstance.logoutRedirect();
   } catch (err: unknown) {
-    console.error('Sign-out failed:', err);
+    trackError(err instanceof Error ? err : new Error(String(err)));
   }
 }
 
