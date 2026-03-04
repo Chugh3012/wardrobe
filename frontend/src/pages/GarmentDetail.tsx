@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import styles from './GarmentDetail.module.css';
-import { fetchStatsSummary, type GarmentStat } from '../api';
+import { fetchStatsSummary, deleteGarment, type GarmentStat } from '../api';
 
 interface GarmentDetailProps {
   garmentId: string;
@@ -11,6 +11,8 @@ export default function GarmentDetail({ garmentId, onBack }: GarmentDetailProps)
   const [garment, setGarment] = useState<GarmentStat | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +42,19 @@ export default function GarmentDetail({ garmentId, onBack }: GarmentDetailProps)
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteGarment(garmentId);
+      onBack();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to delete garment.');
+      setShowConfirm(false);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (loading) {
@@ -131,12 +146,46 @@ export default function GarmentDetail({ garmentId, onBack }: GarmentDetailProps)
         </div>
       </section>
 
-      {/* ── Back button ───────────────────────────────────────────── */}
+      {/* ── Actions ──────────────────────────────────────────────── */}
       <div className={styles.actions}>
         <button className={styles.actionButton} onClick={onBack}>
           ← Back to Catalog
         </button>
+        <button
+          className={styles.deleteButton}
+          onClick={() => setShowConfirm(true)}
+          aria-label={`Delete ${garment.name}`}
+        >
+          🗑 Delete Garment
+        </button>
       </div>
+
+      {/* ── Confirmation dialog ────────────────────────────────── */}
+      {showConfirm && (
+        <div className={styles.overlay} role="dialog" aria-modal="true" aria-label="Confirm deletion">
+          <div className={styles.confirmDialog}>
+            <p className={styles.confirmText}>
+              Are you sure you want to delete <strong>{garment.name}</strong>? This action cannot be undone.
+            </p>
+            <div className={styles.confirmActions}>
+              <button
+                className={styles.cancelButton}
+                onClick={() => setShowConfirm(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.confirmDeleteButton}
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

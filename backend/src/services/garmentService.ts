@@ -121,6 +121,14 @@ export async function decrementWearCount(id: string, userId: string): Promise<Ga
 }
 
 /**
+ * Deletes a Garment by id and userId (partition key).
+ * Throws if the document does not exist.
+ */
+export async function deleteGarment(id: string, userId: string): Promise<void> {
+  await getContainer().item(id, userId).delete();
+}
+
+/**
  * Lists all garments for a given userId (unpaginated).
  * Used internally by endpoints that need the full set (e.g. stats, predict).
  */
