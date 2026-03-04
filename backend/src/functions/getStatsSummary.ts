@@ -118,19 +118,20 @@ export async function getStatsSummary(
     let currentStreak = 0;
     let longestStreak = 0;
     let streak = 0;
+    let currentStreakDone = false;
     // Walk backwards from today
-    const todayStr = now.toISOString().slice(0, 10);
-    for (let i = 0; i <= 90; i++) {
+    for (let i = 0; i < 90; i++) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().slice(0, 10);
       if (dateSet.has(dateStr)) {
         streak++;
         if (streak > longestStreak) longestStreak = streak;
-        if (i === 0 || (i > 0 && currentStreak === i)) {
+        if (!currentStreakDone) {
           currentStreak = streak;
         }
       } else {
+        if (!currentStreakDone) currentStreakDone = true;
         streak = 0;
       }
     }

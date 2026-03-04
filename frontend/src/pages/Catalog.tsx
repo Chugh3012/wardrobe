@@ -158,7 +158,7 @@ export default function Catalog({ onAddGarment, onSelectGarment }: CatalogProps)
       ) : (
         <ul className={styles.garmentGrid}>
           {filteredGarments.map((g) => (
-            <li key={g.id} className={styles.garmentCard} onClick={() => onSelectGarment?.(g.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') onSelectGarment?.(g.id); }}>
+            <li key={g.id} className={styles.garmentCard} onClick={() => onSelectGarment?.(g.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectGarment?.(g.id); } }}>
               <div className={styles.garmentThumb}>
                 {g.thumbnailUrl ? (
                   <img

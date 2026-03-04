@@ -190,7 +190,7 @@ export default function Dashboard() {
                   <span className={styles.forgottenCategory}>{g.category}</span>
                 </div>
                 <span className={styles.forgottenBadge}>
-                  {g.daysSinceWorn !== null ? `${g.daysSinceWorn}d ago` : 'Never worn'}
+                  {g.daysSinceWorn !== null ? `${g.daysSinceWorn} days ago` : 'Never worn'}
                 </span>
               </li>
             ))}
