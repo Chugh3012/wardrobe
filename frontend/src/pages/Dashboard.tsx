@@ -7,6 +7,15 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const loadStats = () => {
+    setError(null);
+    setLoading(true);
+    fetchStatsSummary()
+      .then((data) => { setStats(data); })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load stats.'))
+      .finally(() => setLoading(false));
+  };
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -43,6 +52,7 @@ export default function Dashboard() {
         <div className={styles.errorState}>
           <span className={styles.errorIcon}>⚠️</span>
           <p className={styles.errorText}>{error ?? 'Unable to load stats.'}</p>
+          <button className={styles.retryButton} onClick={loadStats}>Retry</button>
         </div>
       </div>
     );
