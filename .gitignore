@@ -31,5 +31,8 @@ Thumbs.db
 test-results/
 playwright-report/
 
+# Coverage reports
+coverage/
+
 # Bicep ARM template build artifacts
 infra/*.json
