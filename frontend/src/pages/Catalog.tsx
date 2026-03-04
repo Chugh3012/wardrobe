@@ -4,11 +4,12 @@ import { fetchGarments, type GarmentSummary } from '../api';
 
 interface CatalogProps {
   onAddGarment: () => void;
+  onSelectGarment?: (garmentId: string) => void;
 }
 
 const FILTER_CATEGORIES = ['All', 'Dress', 'Top', 'Bottom', 'Outerwear', 'Shoes', 'Accessory', 'Other'];
 
-export default function Catalog({ onAddGarment }: CatalogProps) {
+export default function Catalog({ onAddGarment, onSelectGarment }: CatalogProps) {
   const [garments, setGarments] = useState<GarmentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -157,7 +158,7 @@ export default function Catalog({ onAddGarment }: CatalogProps) {
       ) : (
         <ul className={styles.garmentGrid}>
           {filteredGarments.map((g) => (
-            <li key={g.id} className={styles.garmentCard}>
+            <li key={g.id} className={styles.garmentCard} onClick={() => onSelectGarment?.(g.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') onSelectGarment?.(g.id); }}>
               <div className={styles.garmentThumb}>
                 {g.thumbnailUrl ? (
                   <img
