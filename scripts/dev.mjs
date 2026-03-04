@@ -62,11 +62,12 @@ if (warnings.length > 0) {
 // ── Launch backend (Azure Functions Core Tools) ─────────────────────────────
 
 console.log('🔧 Starting backend (Azure Functions on :7071)...');
-const backend = spawn(
-  process.platform === 'win32' ? 'npm.cmd' : 'npm',
-  ['run', 'prestart'],
-  { cwd: resolve(ROOT, 'backend'), stdio: 'inherit', shell: true }
-);
+const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+
+const backend = spawn(npm, ['run', 'prestart'], {
+  cwd: resolve(ROOT, 'backend'), stdio: 'inherit',
+});
 
 backend.on('close', (code) => {
   if (code !== 0) {
@@ -74,11 +75,9 @@ backend.on('close', (code) => {
     process.exit(1);
   }
 
-  const funcStart = spawn(
-    process.platform === 'win32' ? 'npx.cmd' : 'npx',
-    ['func', 'start', '--port', '7071'],
-    { cwd: resolve(ROOT, 'backend'), stdio: 'inherit', shell: true }
-  );
+  const funcStart = spawn(npx, ['func', 'start', '--port', '7071'], {
+    cwd: resolve(ROOT, 'backend'), stdio: 'inherit',
+  });
 
   funcStart.on('error', (err) => {
     console.error('Failed to start Azure Functions:', err.message);
@@ -95,11 +94,9 @@ backend.on('close', (code) => {
 // ── Launch frontend (Vite dev server) ───────────────────────────────────────
 
 console.log('⚡ Starting frontend (Vite on :5173)...');
-const frontend = spawn(
-  process.platform === 'win32' ? 'npx.cmd' : 'npx',
-  ['vite', '--port', '5173'],
-  { cwd: resolve(ROOT, 'frontend'), stdio: 'inherit', shell: true }
-);
+const frontend = spawn(npx, ['vite', '--port', '5173'], {
+  cwd: resolve(ROOT, 'frontend'), stdio: 'inherit',
+});
 
 frontend.on('error', (err) => {
   console.error('Failed to start Vite:', err.message);
