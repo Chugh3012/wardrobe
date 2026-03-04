@@ -29,7 +29,10 @@ export const msalConfig: Configuration = {
     postLogoutRedirectUri: window.location.origin,
   },
   cache: {
-    cacheLocation: 'localStorage',
+    // sessionStorage limits token exposure to the current tab — cleared on tab
+    // close and not shared across tabs. MSAL's recommended default for SPAs.
+    // (Issue #sec: OWASP A05 — reduces XSS token-exfiltration risk vs localStorage)
+    cacheLocation: 'sessionStorage',
   },
 };
 
