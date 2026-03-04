@@ -78,6 +78,29 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
 }
 
+// ── Key Vault reference for Functions runtime storage (SEC-P2) ───────────────
+// The Consumption plan does not support identity-based content share auth, so
+// a connection string is unavoidable. We store it in Key Vault and reference
+// it here so the raw key is never visible in the Function App configuration.
+
+resource keyVaultForFunctions 'Microsoft.KeyVault/vaults@2023-07-01' existing = if (!empty(keyVaultName)) {
+  name: keyVaultName
+}
+
+resource functionsStorageSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(keyVaultName)) {
+  parent: keyVaultForFunctions
+  name: 'FunctionsStorageConnectionString'
+  properties: {
+    value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+    attributes: {
+      enabled: true
+    }
+    // Rotate this secret every 90 days in line with the project's key-rotation
+    // policy (see key-vault-secrets.bicep for the AI service key pattern).
+    contentType: 'Azure Storage connection string for Functions runtime content share'
+  }
+}
+
 // ── App Service Plan (Consumption / Dynamic) ─────────────────────────────────
 
 resource hostingPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
@@ -126,9 +149,16 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         }
         // Consumption plan requires a connection string for the content file share.
         // Identity-based content share auth is not supported on Consumption (Y1) plans.
+        // The connection string is stored in Key Vault to avoid exposing the key in
+        // plain text in the Function App configuration (SEC-P2).
+        // NOTE: The plain-text fallback (when keyVaultName is empty) is intentional
+        // only for local/ad-hoc deployments without a Key Vault. Production
+        // deployments always supply keyVaultName via main.bicepparam.
         {
           name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+          value: !empty(keyVaultName)
+            ? '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}${environment().suffixes.keyvaultDns}/secrets/FunctionsStorageConnectionString)'
+            : 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
         }
         {
           name: 'WEBSITE_CONTENTSHARE'

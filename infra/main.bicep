@@ -28,11 +28,11 @@ param tags object = {
 @description('Email addresses to receive monthly budget alerts (SEC-P3).')
 param budgetAlertEmails array = []
 
-@description('Azure AD tenant ID for EasyAuth on the Function App.')
-param aadTenantId string = '9a40715f-4db6-4dcd-8973-68db2b112fd8'
+@description('Azure AD tenant ID for EasyAuth on the Function App. Must be set in main.bicepparam for each environment; an empty string disables EasyAuth configuration.')
+param aadTenantId string = ''
 
-@description('Azure AD client (application) ID for EasyAuth.')
-param aadClientId string = '51fbad72-f951-47c6-b1be-bf5f6c01c476'
+@description('Azure AD client (application) ID for EasyAuth. Must be set in main.bicepparam for each environment; an empty string disables EasyAuth configuration.')
+param aadClientId string = ''
 
 // ── Resource group ───────────────────────────────────────────────────────────
 

@@ -6,7 +6,7 @@
 
     "REQUIRE_AUTH": "false",
 
-    "COSMOS_DB_ENDPOINT": "https://cosmos-wardrobe-dev.documents.azure.com:443/",
+    "COSMOS_DB_ENDPOINT": "https://<your-cosmos-account>.documents.azure.com:443/",
     "COSMOS_DB_DATABASE_NAME": "wardrobe",
 
     "BLOB_ACCOUNT_NAME": "stwardrobeimgdev",
