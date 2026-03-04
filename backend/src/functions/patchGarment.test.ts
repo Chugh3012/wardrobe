@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { HttpRequest, InvocationContext } from "@azure/functions";
 import { resetClient } from "../services/cosmosClient.js";
+import { encodeClientPrincipal, makeContext as makeBaseContext } from "../testUtils.js";
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
@@ -33,25 +34,21 @@ vi.mock("@azure/identity", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function encodeClientPrincipal(userId: string): string {
-  return Buffer.from(JSON.stringify({ userId })).toString("base64");
-}
-
-function makePatchRequest(path: string, body: unknown, userId?: string): HttpRequest {
+function makePatchRequest(id: string, body: unknown, userId?: string): HttpRequest {
   return new HttpRequest({
     method: "PATCH",
-    url: `http://localhost:7071${path}`,
+    url: `http://localhost:7071/api/garments/${id}`,
     headers: {
       "Content-Type": "application/json",
       ...(userId ? { "x-ms-client-principal": encodeClientPrincipal(userId) } : {}),
     },
     body: { string: JSON.stringify(body) },
-    params: { id: path.split("/").pop() ?? "" },
+    params: { id },
   });
 }
 
 function makeContext(): InvocationContext {
-  return new InvocationContext({ functionName: "patchGarment" });
+  return makeBaseContext("patchGarment");
 }
 
 const existingGarment = {
@@ -90,7 +87,7 @@ describe("PATCH /api/garments/{id}", () => {
 
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { name: "Red Shirt" }, "user-1"),
+      makePatchRequest("g-123", { name: "Red Shirt" }, "user-1"),
       makeContext(),
     );
 
@@ -105,7 +102,7 @@ describe("PATCH /api/garments/{id}", () => {
 
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { category: "bottom" }, "user-1"),
+      makePatchRequest("g-123", { category: "bottom" }, "user-1"),
       makeContext(),
     );
 
@@ -124,7 +121,7 @@ describe("PATCH /api/garments/{id}", () => {
 
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { catalogImageUrls: newUrls }, "user-1"),
+      makePatchRequest("g-123", { catalogImageUrls: newUrls }, "user-1"),
       makeContext(),
     );
 
@@ -139,7 +136,7 @@ describe("PATCH /api/garments/{id}", () => {
 
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { name: "Green Dress", category: "dress" }, "user-1"),
+      makePatchRequest("g-123", { name: "Green Dress", category: "dress" }, "user-1"),
       makeContext(),
     );
 
@@ -153,7 +150,7 @@ describe("PATCH /api/garments/{id}", () => {
   it("returns 401 when auth header is missing", async () => {
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { name: "New Name" }),
+      makePatchRequest("g-123", { name: "New Name" }),
       makeContext(),
     );
     expect(res.status).toBe(401);
@@ -166,7 +163,7 @@ describe("PATCH /api/garments/{id}", () => {
     const { patchGarment } = await import("./patchGarment.js");
     const longId = "a".repeat(257);
     const res = await patchGarment(
-      makePatchRequest(`/api/garments/${longId}`, { name: "X" }, "user-1"),
+      makePatchRequest(longId, { name: "X" }, "user-1"),
       makeContext(),
     );
     expect(res.status).toBe(400);
@@ -214,7 +211,7 @@ describe("PATCH /api/garments/{id}", () => {
   it("returns 400 when name is empty string", async () => {
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { name: "" }, "user-1"),
+      makePatchRequest("g-123", { name: "" }, "user-1"),
       makeContext(),
     );
     expect(res.status).toBe(400);
@@ -224,7 +221,7 @@ describe("PATCH /api/garments/{id}", () => {
   it("returns 400 when name exceeds 100 characters", async () => {
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { name: "a".repeat(101) }, "user-1"),
+      makePatchRequest("g-123", { name: "a".repeat(101) }, "user-1"),
       makeContext(),
     );
     expect(res.status).toBe(400);
@@ -236,7 +233,7 @@ describe("PATCH /api/garments/{id}", () => {
   it("returns 400 when category is empty string", async () => {
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { category: "" }, "user-1"),
+      makePatchRequest("g-123", { category: "" }, "user-1"),
       makeContext(),
     );
     expect(res.status).toBe(400);
@@ -246,7 +243,7 @@ describe("PATCH /api/garments/{id}", () => {
   it("returns 400 when category exceeds 50 characters", async () => {
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { category: "a".repeat(51) }, "user-1"),
+      makePatchRequest("g-123", { category: "a".repeat(51) }, "user-1"),
       makeContext(),
     );
     expect(res.status).toBe(400);
@@ -256,7 +253,7 @@ describe("PATCH /api/garments/{id}", () => {
   it("returns 400 when category is not in allowed list", async () => {
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { category: "hat" }, "user-1"),
+      makePatchRequest("g-123", { category: "hat" }, "user-1"),
       makeContext(),
     );
     expect(res.status).toBe(400);
@@ -268,7 +265,7 @@ describe("PATCH /api/garments/{id}", () => {
   it("returns 400 when catalogImageUrls is not an array", async () => {
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { catalogImageUrls: "not-an-array" }, "user-1"),
+      makePatchRequest("g-123", { catalogImageUrls: "not-an-array" }, "user-1"),
       makeContext(),
     );
     expect(res.status).toBe(400);
@@ -278,7 +275,7 @@ describe("PATCH /api/garments/{id}", () => {
   it("returns 400 when catalogImageUrls is empty", async () => {
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { catalogImageUrls: [] }, "user-1"),
+      makePatchRequest("g-123", { catalogImageUrls: [] }, "user-1"),
       makeContext(),
     );
     expect(res.status).toBe(400);
@@ -289,7 +286,7 @@ describe("PATCH /api/garments/{id}", () => {
     const { patchGarment } = await import("./patchGarment.js");
     const urls = Array.from({ length: 9 }, (_, i) => `https://storageaccount.blob.core.windows.net/images/img${i}.jpg`);
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { catalogImageUrls: urls }, "user-1"),
+      makePatchRequest("g-123", { catalogImageUrls: urls }, "user-1"),
       makeContext(),
     );
     expect(res.status).toBe(400);
@@ -299,7 +296,7 @@ describe("PATCH /api/garments/{id}", () => {
   it("returns 400 when catalogImageUrl is not HTTPS", async () => {
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", {
+      makePatchRequest("g-123", {
         catalogImageUrls: ["http://storageaccount.blob.core.windows.net/images/img1.jpg"],
       }, "user-1"),
       makeContext(),
@@ -312,7 +309,7 @@ describe("PATCH /api/garments/{id}", () => {
     const { patchGarment } = await import("./patchGarment.js");
     const longUrl = "https://storageaccount.blob.core.windows.net/images/" + "a".repeat(2048) + ".jpg";
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { catalogImageUrls: [longUrl] }, "user-1"),
+      makePatchRequest("g-123", { catalogImageUrls: [longUrl] }, "user-1"),
       makeContext(),
     );
     expect(res.status).toBe(400);
@@ -324,7 +321,7 @@ describe("PATCH /api/garments/{id}", () => {
   it("returns 400 when no updatable fields are provided", async () => {
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", {}, "user-1"),
+      makePatchRequest("g-123", {}, "user-1"),
       makeContext(),
     );
     expect(res.status).toBe(400);
@@ -338,7 +335,7 @@ describe("PATCH /api/garments/{id}", () => {
 
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-999", { name: "New Name" }, "user-1"),
+      makePatchRequest("g-999", { name: "New Name" }, "user-1"),
       makeContext(),
     );
     expect(res.status).toBe(404);
@@ -352,7 +349,7 @@ describe("PATCH /api/garments/{id}", () => {
 
     const { patchGarment } = await import("./patchGarment.js");
     const res = await patchGarment(
-      makePatchRequest("/api/garments/g-123", { name: "New Name" }, "user-1"),
+      makePatchRequest("g-123", { name: "New Name" }, "user-1"),
       makeContext(),
     );
     expect(res.status).toBe(500);
