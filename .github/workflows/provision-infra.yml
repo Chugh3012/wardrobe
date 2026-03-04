@@ -189,7 +189,7 @@ jobs:
 
           missing=0
           for secret in CustomVisionTrainingKey CustomVisionPredictionKey AIVisionKey; do
-            if az keyvault secret show --vault-name "$KV_NAME" --name "$secret" --query "id" --output tsv > /dev/null 2>&1; then
+            if az keyvault secret show --vault-name "$KV_NAME" --name "$secret" --query "id" --output tsv > /dev/null; then
               echo "✅ $secret — present"
             else
               echo "::error::❌ $secret — MISSING from Key Vault $KV_NAME"
