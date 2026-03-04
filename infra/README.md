@@ -214,32 +214,51 @@ Each subsequent issue (#2 Functions, #3 Blob, #4 Cosmos DB, …) adds a new modu
 
 ---
 
-## Post-deployment: populate Key Vault secrets (SEC-P4)
+## Key Vault secrets (auto-populated)
 
-The Function App references three AI service keys via `@Microsoft.KeyVault(SecretUri=...)`.
-After initial deployment, populate these secrets manually:
+The `key-vault-secrets.bicep` module automatically populates three AI service API keys
+into Key Vault using `listKeys()` from the Cognitive Services accounts. No manual
+secret population is needed after provisioning — fresh deployments to new environments
+work immediately.
 
-```bash
-KV_NAME="kv-wardrobe-dev"   # adjust to match your environment
+| Secret Name | Source Account | Function App Env Var |
+|---|---|---|
+| `CustomVisionTrainingKey` | `cv-train-wardrobe-<env>` | `CUSTOM_VISION_TRAINING_KEY` |
+| `CustomVisionPredictionKey` | `cv-pred-wardrobe-<env>` | `CUSTOM_VISION_PREDICTION_KEY` |
+| `AIVisionKey` | `cv-vision-wardrobe-<env>` | `AI_VISION_KEY` |
 
-# Custom Vision Training key
-az keyvault secret set --vault-name "$KV_NAME" \
-  --name "custom-vision-training-key" \
-  --value "$(az cognitiveservices account keys list -n cv-wardrobe-training-dev -g rg-wardrobe-dev --query key1 -o tsv)"
+The `provision-infra.yml` workflow includes a **Verify Key Vault secrets** step that
+confirms all three secrets exist after deployment. If any secret is missing, the
+workflow fails with a clear error.
 
-# Custom Vision Prediction key
-az keyvault secret set --vault-name "$KV_NAME" \
-  --name "custom-vision-prediction-key" \
-  --value "$(az cognitiveservices account keys list -n cv-wardrobe-prediction-dev -g rg-wardrobe-dev --query key1 -o tsv)"
+> The Function App MI has the **Key Vault Secrets User** role (assigned in `key-vault-rbac.bicep`)
+> for runtime read access.
 
-# AI Vision (Computer Vision) key
-az keyvault secret set --vault-name "$KV_NAME" \
-  --name "ai-vision-key" \
-  --value "$(az cognitiveservices account keys list -n cv-wardrobe-dev -g rg-wardrobe-dev --query key1 -o tsv)"
-```
+### Secret rotation (90-day schedule — SEC-P14)
 
-> The Function App MI already has the **Key Vault Secrets User** role (assigned in `key-vault-rbac.bicep`),
-> so it can read these secrets at runtime without additional configuration.
+Each secret is created with a **90-day expiry**. Azure Policy / Defender for Cloud will
+alert when secrets approach expiration. To rotate:
+
+1. Regenerate key2 (the standby key) on the Cognitive Services account:
+   ```bash
+   az cognitiveservices account keys regenerate \
+     --name <accountName> --resource-group rg-wardrobe-<env> --key-name key2
+   ```
+2. Update the Key Vault secret with the new key2 value:
+   ```bash
+   az keyvault secret set --vault-name kv-wardrobe-<env> \
+     --name <SecretName> --value <newKey2Value>
+   ```
+3. Wait for the Function App Key Vault reference cache to refresh (~24 h),
+   or restart the Function App to pick up the new secret immediately.
+4. Regenerate key1 (the previously active key) so it is invalidated:
+   ```bash
+   az cognitiveservices account keys regenerate \
+     --name <accountName> --resource-group rg-wardrobe-<env> --key-name key1
+   ```
+
+Alternatively, re-run the `provision-infra.yml` workflow — the Bicep deployment will
+re-read the current key1 from each AI service and update the secrets automatically.
 
 ---
 
@@ -259,6 +278,7 @@ infra/
     ├── ai-services.bicep       # Issue #10 — Cognitive Services (Custom Vision + AI Vision)
     ├── key-vault.bicep         # Issue #13 — Key Vault (RBAC, soft-delete, purge protection)
     ├── key-vault-rbac.bicep    # Issue #13 — Key Vault RBAC role assignments
+    ├── key-vault-secrets.bicep # Issue #17 — Auto-populate AI service keys into Key Vault
     ├── budget.bicep            # Issue #13.6 — Monthly budget alert ($5, 3 tiers)
     └── observability.bicep     # Issue #14 — Log Analytics + Application Insights
 ```
