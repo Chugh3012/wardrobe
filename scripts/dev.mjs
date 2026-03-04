@@ -1,107 +1,71 @@
 #!/usr/bin/env node
 
 /**
- * Full-stack local development orchestrator.
+ * Full-stack local development — backend + frontend.
  *
- * Starts the Vite dev server (frontend) and Azure Functions Core Tools
- * (backend) concurrently. The Vite config proxies /api/* requests to the
- * Functions host, so the frontend talks to the backend through a single
- * origin — no CORS issues, no extra configuration.
+ * 1. Builds the backend (tsc)
+ * 2. Starts Azure Functions on :7071
+ * 3. Starts Vite dev server on :5173 (after backend is ready)
  *
- * Prerequisites:
- *   1. Azure Functions Core Tools v4 installed (`npm i -g azure-functions-core-tools@4`)
- *   2. `az login` completed (for DefaultAzureCredential → Cosmos/Blob access)
- *   3. backend/local.settings.json configured (copy from local.settings.json.example)
- *   4. frontend/.env.local configured (copy from .env.local.example)
- *
- * Usage:
- *   npm run dev           — starts both services
- *   npm run dev:frontend  — frontend only (uses mock or Azure backend)
- *   npm run dev:backend   — backend only
+ * Usage:  npm run dev
  */
 
-import { spawn } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
+const shell = process.platform === 'win32';
 
 // ── Pre-flight checks ───────────────────────────────────────────────────────
-
-const localSettings = resolve(ROOT, 'backend', 'local.settings.json');
-const envLocal = resolve(ROOT, 'frontend', '.env.local');
-
-let warnings = [];
-
-if (!existsSync(localSettings)) {
-  warnings.push(
-    `⚠  backend/local.settings.json not found.\n` +
-    `   Copy from backend/local.settings.json.example and fill in your values.\n` +
-    `   The backend will start but Azure service calls will fail.`
-  );
+if (!existsSync(resolve(ROOT, 'backend', 'local.settings.json'))) {
+  console.log('⚠  backend/local.settings.json not found.');
+  console.log('   Copy from backend/local.settings.json.example and fill in your values.\n');
 }
 
-if (!existsSync(envLocal)) {
-  warnings.push(
-    `⚠  frontend/.env.local not found.\n` +
-    `   Copy from frontend/.env.local.example and fill in your values.\n` +
-    `   Using defaults (API proxied to localhost:7071).`
-  );
+// ── Step 1: Build backend (synchronous — block until done) ──────────────────
+console.log('🔧 Building backend...');
+try {
+  execSync('npm run prestart', { cwd: resolve(ROOT, 'backend'), stdio: 'inherit', shell });
+} catch {
+  console.error('❌ Backend build failed.');
+  process.exit(1);
 }
 
-if (warnings.length > 0) {
-  console.log('\n╭─────────────────────────────────────────────╮');
-  console.log('│  Wardrobe Tracker — Local Development Setup  │');
-  console.log('╰─────────────────────────────────────────────╯\n');
-  warnings.forEach(w => console.log(w + '\n'));
-  console.log('─'.repeat(50) + '\n');
-}
-
-// ── Launch backend (Azure Functions Core Tools) ─────────────────────────────
-
-console.log('🔧 Starting backend (Azure Functions on :7071)...');
-// On Windows, npm/npx are .cmd batch files that require shell: true.
-const spawnOpts = { stdio: 'inherit', shell: process.platform === 'win32' };
-
-const backend = spawn('npm', ['run', 'prestart'], {
-  ...spawnOpts, cwd: resolve(ROOT, 'backend'),
+// ── Step 2: Start Azure Functions ───────────────────────────────────────────
+console.log('\n🔧 Starting Azure Functions on :7071...');
+const func = spawn('npx', ['func', 'start', '--port', '7071'], {
+  cwd: resolve(ROOT, 'backend'), stdio: 'inherit', shell,
 });
 
-backend.on('close', (code) => {
-  if (code !== 0) {
-    console.error(`Backend build failed with code ${code}`);
-    process.exit(1);
-  }
-
-  const funcStart = spawn('npx', ['func', 'start', '--port', '7071'], {
-    ...spawnOpts, cwd: resolve(ROOT, 'backend'),
-  });
-
-  funcStart.on('error', (err) => {
-    console.error('Failed to start Azure Functions:', err.message);
-    console.error('Make sure Azure Functions Core Tools v4 is installed:');
-    console.error('  npm install -g azure-functions-core-tools@4 --unsafe-perm true');
-    process.exit(1);
-  });
-
-  // Clean shutdown
-  process.on('SIGINT', () => { funcStart.kill('SIGINT'); });
-  process.on('SIGTERM', () => { funcStart.kill('SIGTERM'); });
-});
-
-// ── Launch frontend (Vite dev server) ───────────────────────────────────────
-
-console.log('⚡ Starting frontend (Vite on :5173)...');
-const frontend = spawn('npx', ['vite', '--port', '5173'], {
-  ...spawnOpts, cwd: resolve(ROOT, 'frontend'),
-});
-
-frontend.on('error', (err) => {
-  console.error('Failed to start Vite:', err.message);
+func.on('error', (err) => {
+  console.error('Failed to start Azure Functions:', err.message);
   process.exit(1);
 });
 
-process.on('SIGINT', () => { frontend.kill('SIGINT'); });
-process.on('SIGTERM', () => { frontend.kill('SIGTERM'); });
+// ── Step 3: Poll for backend health, then start Vite ────────────────────────
+async function waitAndStartFrontend() {
+  console.log('⏳ Waiting for backend...');
+  for (let i = 0; i < 30; i++) {
+    await new Promise(r => setTimeout(r, 1000));
+    try {
+      const res = await fetch('http://localhost:7071/api/health');
+      if (res.ok) {
+        console.log('✅ Backend ready!\n⚡ Starting frontend on :5173...\n');
+        const vite = spawn('npx', ['vite', '--port', '5173'], {
+          cwd: resolve(ROOT, 'frontend'), stdio: 'inherit', shell,
+        });
+        process.on('SIGINT', () => { func.kill(); vite.kill(); process.exit(0); });
+        process.on('SIGTERM', () => { func.kill(); vite.kill(); process.exit(0); });
+        return;
+      }
+    } catch { /* backend not ready yet */ }
+  }
+  console.error('❌ Backend did not start within 30 seconds.');
+  func.kill();
+  process.exit(1);
+}
+
+waitAndStartFrontend();
