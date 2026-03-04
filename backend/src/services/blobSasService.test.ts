@@ -113,12 +113,43 @@ describe("blobSasService", () => {
       expect(mockGetUserDelegationKey).not.toHaveBeenCalled();
     });
 
-    it("passes through non-blob URLs unchanged", async () => {
+    it("returns null for non-blob URLs", async () => {
       const { generateReadSasUrls } = await import("./blobSasService.js");
       const result = await generateReadSasUrls([
         "https://example.com/image.jpg",
       ]);
-      expect(result).toEqual(["https://example.com/image.jpg"]);
+      expect(result).toEqual([null]);
+    });
+
+    it("returns null for unparseable URLs", async () => {
+      const { generateReadSasUrls } = await import("./blobSasService.js");
+      const result = await generateReadSasUrls(["not-a-url"]);
+      expect(result).toEqual([null]);
+    });
+
+    it("returns null for http (non-HTTPS) blob URLs", async () => {
+      const { generateReadSasUrls } = await import("./blobSasService.js");
+      const result = await generateReadSasUrls([
+        "http://stwardrobeimgdev.blob.core.windows.net/images/user-1/test.jpg",
+      ]);
+      expect(result).toEqual([null]);
+    });
+
+    it("returns null for blob URLs from a different account when BLOB_ACCOUNT_NAME is set", async () => {
+      const { generateReadSasUrls } = await import("./blobSasService.js");
+      const result = await generateReadSasUrls([
+        "https://otheraccountname.blob.core.windows.net/images/user-1/test.jpg",
+      ]);
+      expect(result).toEqual([null]);
+    });
+
+    it("returns null for blob URLs with insufficient path segments", async () => {
+      const { generateReadSasUrls } = await import("./blobSasService.js");
+      // Valid URL but only one path segment (no blob name)
+      const result = await generateReadSasUrls([
+        "https://stwardrobeimgdev.blob.core.windows.net/images",
+      ]);
+      expect(result).toEqual([null]);
     });
 
     it("handles mixed null and blob URLs", async () => {
