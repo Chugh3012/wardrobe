@@ -199,7 +199,7 @@ export async function postWearConfirm(
     );
     return {
       status: 500,
-      jsonBody: { error: "Failed to confirm wear event. Check server logs." },
+      jsonBody: { error: "Failed to confirm wear event." },
     };
   }
 }

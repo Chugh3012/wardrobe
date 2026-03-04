@@ -96,7 +96,7 @@ export async function getGarments(
     );
     return {
       status: 500,
-      jsonBody: { error: "Failed to list garments. Check server logs." },
+      jsonBody: { error: "Failed to list garments." },
     };
   }
 }

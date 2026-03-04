@@ -100,7 +100,7 @@ export async function getWearHistory(
     );
     return {
       status: 500,
-      jsonBody: { error: "Failed to retrieve wear history. Check server logs." },
+      jsonBody: { error: "Failed to retrieve wear history." },
     };
   }
 }

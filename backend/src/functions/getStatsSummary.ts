@@ -162,7 +162,7 @@ export async function getStatsSummary(
     );
     return {
       status: 500,
-      jsonBody: { error: "Failed to retrieve stats summary. Check server logs." },
+      jsonBody: { error: "Failed to retrieve stats summary." },
     };
   }
 }
