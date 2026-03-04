@@ -4,14 +4,17 @@ import Dashboard from './pages/Dashboard';
 import Catalog from './pages/Catalog';
 import AddGarment from './pages/AddGarment';
 import DailyUpload from './pages/DailyUpload';
+import History from './pages/History';
+import GarmentDetail from './pages/GarmentDetail';
 import { trackPageView } from './telemetry';
 import { msalInstance, apiScopes } from './msalConfig';
 
-export type Page = 'dashboard' | 'catalog' | 'add' | 'upload';
+export type Page = 'dashboard' | 'catalog' | 'add' | 'upload' | 'history' | 'garment-detail';
 
 export default function App() {
   const [page, setPage] = useState<Page>('dashboard');
   const [authChecked, setAuthChecked] = useState(false);
+  const [selectedGarmentId, setSelectedGarmentId] = useState<string | null>(null);
 
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -63,9 +66,11 @@ export default function App() {
   const renderPage = () => {
     switch (page) {
       case 'dashboard': return <Dashboard />;
-      case 'catalog':   return <Catalog onAddGarment={() => setPage('add')} />;
+      case 'catalog':   return <Catalog onAddGarment={() => setPage('add')} onSelectGarment={(id) => { setSelectedGarmentId(id); setPage('garment-detail'); }} />;
       case 'add':       return <AddGarment onBack={() => setPage('catalog')} />;
       case 'upload':    return <DailyUpload />;
+      case 'history':   return <History />;
+      case 'garment-detail': return <GarmentDetail garmentId={selectedGarmentId!} onBack={() => setPage('catalog')} />;
     }
   };
 

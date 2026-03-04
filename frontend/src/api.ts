@@ -66,6 +66,32 @@ export interface StatsSummary {
   garments: GarmentStat[];
   mostWorn: Array<{ garmentId: string; name: string; wearCount: number }>;
   leastWorn: Array<{ garmentId: string; name: string; wearCount: number }>;
+  forgotten: ForgottenGarment[];
+  streaks: { current: number; longest: number };
+  calendar: Array<{ date: string; count: number }>;
+}
+
+export interface ForgottenGarment {
+  garmentId: string;
+  name: string;
+  category: string;
+  lastWornDate: string | null;
+  daysSinceWorn: number | null;
+}
+
+export interface WearHistoryEvent {
+  id: string;
+  garmentId: string;
+  garmentName: string;
+  category: string;
+  outfitImageUrl: string;
+  confidence: number;
+  createdAt: string;
+}
+
+export interface WearHistoryResponse {
+  events: WearHistoryEvent[];
+  continuationToken?: string;
 }
 
 export interface SasUrlResponse {
@@ -275,4 +301,18 @@ export async function deleteWearEvent(id: string): Promise<void> {
  */
 export async function fetchStatsSummary(): Promise<StatsSummary> {
   return apiFetch<StatsSummary>('/api/stats/summary');
+}
+
+/**
+ * GET /api/wear/history — get paginated wear event history.
+ */
+export async function fetchWearHistory(
+  pageSize?: number,
+  continuationToken?: string,
+): Promise<WearHistoryResponse> {
+  const params = new URLSearchParams();
+  if (pageSize) params.set('pageSize', String(pageSize));
+  if (continuationToken) params.set('continuationToken', continuationToken);
+  const qs = params.toString();
+  return apiFetch<WearHistoryResponse>(`/api/wear/history${qs ? `?${qs}` : ''}`);
 }

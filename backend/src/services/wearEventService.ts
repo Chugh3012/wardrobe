@@ -86,3 +86,72 @@ export async function getWearEventAggregations(userId: string): Promise<WearEven
     .fetchAll();
   return resources;
 }
+
+/** Per-day wear count for activity calendar / streak calculations. */
+export interface DailyWearCount {
+  date: string;
+  count: number;
+}
+
+/**
+ * Returns per-day wear counts for a user since the given date (ISO 8601).
+ * Used for activity calendar heatmaps and wear-streak computations.
+ */
+export async function getWearDates(userId: string, since: string): Promise<DailyWearCount[]> {
+  const { resources } = await getContainer().items
+    .query<{ wearDate: string; count: number }>({
+      query:
+        "SELECT SUBSTRING(c.createdAt, 0, 10) AS wearDate, COUNT(1) AS count " +
+        "FROM c WHERE c.userId = @userId AND c.createdAt >= @since " +
+        "GROUP BY SUBSTRING(c.createdAt, 0, 10)",
+      parameters: [
+        { name: "@userId", value: userId },
+        { name: "@since", value: since },
+      ],
+    })
+    .fetchAll();
+  return resources.map((r) => ({ date: r.wearDate, count: r.count }));
+}
+
+/** Default page size for wear event history. */
+const DEFAULT_HISTORY_SIZE = 20;
+/** Maximum allowed page size for wear event history. */
+const MAX_HISTORY_SIZE = 50;
+
+/** Result shape for paginated wear event listing. */
+export interface PaginatedWearEvents {
+  events: WearEvent[];
+  continuationToken: string | undefined;
+}
+
+/**
+ * Lists wear events for a user with pagination (for outfit history).
+ */
+export async function listWearEventsPaginated(
+  userId: string,
+  pageSize?: number,
+  continuationToken?: string,
+): Promise<PaginatedWearEvents> {
+  const effectivePageSize = Math.min(
+    Math.max(pageSize ?? DEFAULT_HISTORY_SIZE, 1),
+    MAX_HISTORY_SIZE,
+  );
+
+  const iterator = getContainer().items.query<WearEvent>(
+    {
+      query: "SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC",
+      parameters: [{ name: "@userId", value: userId }],
+    },
+    {
+      maxItemCount: effectivePageSize,
+      continuationToken: continuationToken || undefined,
+    },
+  );
+
+  const response = await iterator.fetchNext();
+
+  return {
+    events: response.resources ?? [],
+    continuationToken: response.continuationToken ?? undefined,
+  };
+}

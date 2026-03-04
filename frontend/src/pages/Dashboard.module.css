@@ -136,3 +136,97 @@
   font-size: 13px;
   color: var(--color-text-secondary);
 }
+
+/* ── Activity calendar heatmap ───────────────────────────────────────────── */
+
+.calendarCard {
+  background: var(--color-surface);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(18, 1fr);
+  gap: 3px;
+}
+
+.calendarCell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--color-border);
+  min-width: 0;
+}
+
+.calendarCell[data-level="0"] { background: var(--color-border); }
+.calendarCell[data-level="1"] { background: #c4b5fd; }
+.calendarCell[data-level="2"] { background: #8b5cf6; }
+.calendarCell[data-level="3"] { background: #6d28d9; }
+
+@media (prefers-color-scheme: dark) {
+  .calendarCell[data-level="0"] { background: var(--color-border); }
+  .calendarCell[data-level="1"] { background: #4c1d95; }
+  .calendarCell[data-level="2"] { background: #6d28d9; }
+  .calendarCell[data-level="3"] { background: #a78bfa; }
+}
+
+.calendarLegend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.calendarLegend .calendarCell {
+  width: 12px;
+  height: 12px;
+}
+
+.calendarLegendLabel {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+/* ── Section hint ────────────────────────────────────────────────────────── */
+
+.sectionHint {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 12px;
+}
+
+/* ── Forgotten garments ──────────────────────────────────────────────────── */
+
+.forgottenItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: var(--color-surface);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.forgottenInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.forgottenCategory {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+}
+
+.forgottenBadge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-warning, #d97706);
+  background: var(--color-warning-light, #fffbeb);
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}

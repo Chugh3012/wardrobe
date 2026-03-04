@@ -4,14 +4,19 @@ import { fetchGarments, type GarmentSummary } from '../api';
 
 interface CatalogProps {
   onAddGarment: () => void;
+  onSelectGarment?: (garmentId: string) => void;
 }
 
-export default function Catalog({ onAddGarment }: CatalogProps) {
+const FILTER_CATEGORIES = ['All', 'Dress', 'Top', 'Bottom', 'Outerwear', 'Shoes', 'Accessory', 'Other'];
+
+export default function Catalog({ onAddGarment, onSelectGarment }: CatalogProps) {
   const [garments, setGarments] = useState<GarmentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [continuationToken, setContinuationToken] = useState<string | undefined>();
   const [loadingMore, setLoadingMore] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filterCategory, setFilterCategory] = useState('All');
 
   const loadGarments = useCallback(async (token?: string) => {
     try {
@@ -38,6 +43,13 @@ export default function Catalog({ onAddGarment }: CatalogProps) {
     await loadGarments(continuationToken);
     setLoadingMore(false);
   };
+
+  // Client-side search and filter
+  const filteredGarments = garments.filter((g) => {
+    const matchesSearch = search === '' || g.name.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = filterCategory === 'All' || g.category.toLowerCase() === filterCategory.toLowerCase();
+    return matchesSearch && matchesCategory;
+  });
 
   // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) {
@@ -101,7 +113,7 @@ export default function Catalog({ onAddGarment }: CatalogProps) {
     );
   }
 
-  // ── Garment grid ───────────────────────────────────────────────────────────
+  // ── Garment grid with search + filter ─────────────────────────────────────
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -111,30 +123,64 @@ export default function Catalog({ onAddGarment }: CatalogProps) {
         </button>
       </header>
 
-      <ul className={styles.garmentGrid}>
-        {garments.map((g) => (
-          <li key={g.id} className={styles.garmentCard}>
-            <div className={styles.garmentThumb}>
-              {g.thumbnailUrl ? (
-                <img
-                  src={g.thumbnailUrl}
-                  alt={g.name}
-                  className={styles.garmentImage}
-                  loading="lazy"
-                />
-              ) : (
-                <span className={styles.garmentPlaceholder}>👗</span>
-              )}
-            </div>
-            <div className={styles.garmentInfo}>
-              <span className={styles.garmentName}>{g.name}</span>
-              <span className={styles.garmentMeta}>
-                {g.category} · {g.wearCount} wear{g.wearCount !== 1 ? 's' : ''}
-              </span>
-            </div>
-          </li>
+      {/* ── Search bar ───────────────────────────────────────────── */}
+      <div className={styles.searchBar}>
+        <input
+          type="search"
+          className={styles.searchInput}
+          placeholder="Search garments…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Search garments by name"
+        />
+      </div>
+
+      {/* ── Category filter chips ─────────────────────────────────── */}
+      <div className={styles.filterChips}>
+        {FILTER_CATEGORIES.map((cat) => (
+          <button
+            key={cat}
+            className={`${styles.filterChip} ${filterCategory === cat ? styles.filterChipActive : ''}`}
+            onClick={() => setFilterCategory(cat)}
+            aria-pressed={filterCategory === cat}
+          >
+            {cat}
+          </button>
         ))}
-      </ul>
+      </div>
+
+      {filteredGarments.length === 0 ? (
+        <div className={styles.emptyState}>
+          <span className={styles.emptyIcon}>🔍</span>
+          <p className={styles.emptyText}>No matches found</p>
+          <p className={styles.emptyHint}>Try a different search or filter.</p>
+        </div>
+      ) : (
+        <ul className={styles.garmentGrid}>
+          {filteredGarments.map((g) => (
+            <li key={g.id} className={styles.garmentCard} onClick={() => onSelectGarment?.(g.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectGarment?.(g.id); } }}>
+              <div className={styles.garmentThumb}>
+                {g.thumbnailUrl ? (
+                  <img
+                    src={g.thumbnailUrl}
+                    alt={g.name}
+                    className={styles.garmentImage}
+                    loading="lazy"
+                  />
+                ) : (
+                  <span className={styles.garmentPlaceholder}>👗</span>
+                )}
+              </div>
+              <div className={styles.garmentInfo}>
+                <span className={styles.garmentName}>{g.name}</span>
+                <span className={styles.garmentMeta}>
+                  {g.category} · {g.wearCount} wear{g.wearCount !== 1 ? 's' : ''}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {continuationToken && (
         <div className={styles.loadMoreWrap}>

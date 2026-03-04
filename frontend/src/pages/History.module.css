@@ -1,0 +1,200 @@
+.page {
+  padding: 24px 16px;
+}
+
+.header {
+  margin-bottom: 28px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+/* ── Timeline ────────────────────────────────────────────────────────────── */
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.dayGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dayHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.dayDate {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.dayCount {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.eventList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eventCard {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: var(--color-surface);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  align-items: center;
+}
+
+.eventThumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.eventImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.eventPlaceholder {
+  font-size: 24px;
+}
+
+.eventInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.eventName {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eventMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.categoryBadge {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.confidenceText {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* ── States ──────────────────────────────────────────────────────────────── */
+
+.loadingState {
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.loadingText {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+}
+
+.errorState {
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.errorIcon {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.errorText {
+  font-size: 16px;
+  color: var(--color-text);
+  margin-bottom: 16px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 48px 16px;
+}
+
+.emptyIcon {
+  font-size: 56px;
+  display: block;
+  margin-bottom: 16px;
+}
+
+.emptyText {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 8px;
+}
+
+.emptyHint {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.retryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 10px;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.loadMoreWrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}

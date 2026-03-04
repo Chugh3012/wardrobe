@@ -5,7 +5,7 @@ import {
   InvocationContext,
 } from "@azure/functions";
 import { listGarments } from "../services/garmentService.js";
-import { getWearEventAggregations } from "../services/wearEventService.js";
+import { getWearEventAggregations, getWearDates } from "../services/wearEventService.js";
 import {
   extractUserId,
   unauthorizedResponse,
@@ -46,9 +46,16 @@ export async function getStatsSummary(
   }
 
   try {
-    const [garments, wearAggregations] = await Promise.all([
+    // Fetch calendar data for the past 90 days alongside garments and aggregations
+    const now = new Date();
+    const ninetyDaysAgo = new Date(now);
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const sinceDate = ninetyDaysAgo.toISOString();
+
+    const [garments, wearAggregations, wearDates] = await Promise.all([
       listGarments(userId),
       getWearEventAggregations(userId),
+      getWearDates(userId, sinceDate),
     ]);
 
     // Build a map of garmentId → { lastWornDate, eventCount } from aggregations (F4)
@@ -88,6 +95,47 @@ export async function getStatsSummary(
         .map((g) => ({ garmentId: g.id, name: g.name, wearCount: g.wearCount }));
     }
 
+    // Compute forgotten garments — items not worn in 30+ days
+    const thirtyDaysAgoMs = now.getTime() - 30 * 24 * 60 * 60 * 1000;
+    const forgotten = garments
+      .filter((g) => {
+        const lastWorn = aggMap.get(g.id)?.lastWornDate;
+        if (!lastWorn) return true; // never worn
+        return new Date(lastWorn).getTime() < thirtyDaysAgoMs;
+      })
+      .map((g) => ({
+        garmentId: g.id,
+        name: g.name,
+        category: g.category,
+        lastWornDate: aggMap.get(g.id)?.lastWornDate ?? null,
+        daysSinceWorn: aggMap.get(g.id)?.lastWornDate
+          ? Math.floor((now.getTime() - new Date(aggMap.get(g.id)!.lastWornDate).getTime()) / (24 * 60 * 60 * 1000))
+          : null,
+      }));
+
+    // Compute wear streaks from calendar data
+    const dateSet = new Set(wearDates.map((d) => d.date));
+    let currentStreak = 0;
+    let longestStreak = 0;
+    let streak = 0;
+    let currentStreakDone = false;
+    // Walk backwards from today
+    for (let i = 0; i < 90; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().slice(0, 10);
+      if (dateSet.has(dateStr)) {
+        streak++;
+        if (streak > longestStreak) longestStreak = streak;
+        if (!currentStreakDone) {
+          currentStreak = streak;
+        }
+      } else {
+        if (!currentStreakDone) currentStreakDone = true;
+        streak = 0;
+      }
+    }
+
     context.log(`Stats summary for user ${userId}: ${garments.length} garments, ${totalWearEvents} wear events`);
 
     return {
@@ -98,6 +146,12 @@ export async function getStatsSummary(
         garments: garmentStats,
         mostWorn,
         leastWorn,
+        forgotten,
+        streaks: {
+          current: currentStreak,
+          longest: longestStreak,
+        },
+        calendar: wearDates,
       },
     };
   } catch (err) {

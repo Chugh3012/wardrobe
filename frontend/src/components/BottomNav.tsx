@@ -11,6 +11,7 @@ const NAV_ITEMS: NavItem[] = [
   { page: 'dashboard', label: 'Dashboard', icon: '📊' },
   { page: 'catalog',   label: 'Catalog',   icon: '👗' },
   { page: 'upload',    label: 'Today',     icon: '📷' },
+  { page: 'history',   label: 'History',   icon: '📅' },
 ];
 
 interface BottomNavProps {
