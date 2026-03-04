@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import styles from './AddGarment.module.css';
 import { getSasUrl, uploadToBlob, createGarment } from '../api';
 
@@ -18,6 +18,11 @@ export default function AddGarment({ onBack }: AddGarmentProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Revoke all object URLs when the previews array changes or on unmount to prevent memory leaks.
+  useEffect(() => {
+    return () => { previews.forEach(url => URL.revokeObjectURL(url)); };
+  }, [previews]);
 
   const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files;
