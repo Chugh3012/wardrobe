@@ -1,0 +1,14 @@
+{
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "[markdown]": {
+    "files.trimTrailingWhitespace": false
+  },
+  "editor.rulers": [100],
+  "files.associations": {
+    "*.agent.md": "chatagent",
+    "*.instructions.md": "instructions",
+    "*.prompt.md": "prompt"
+  }
+}
