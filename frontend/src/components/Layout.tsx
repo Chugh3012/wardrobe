@@ -4,8 +4,9 @@ import BottomNav from './BottomNav';
 import type { Page } from '../App';
 import styles from './Layout.module.css';
 
-interface LayoutProps {
-  children: ReactNode;
+/** Props for the page shell layout component. */
+export interface LayoutProps {
+  children?: ReactNode;
   currentPage: Page;
   onNavigate: (page: Page) => void;
 }

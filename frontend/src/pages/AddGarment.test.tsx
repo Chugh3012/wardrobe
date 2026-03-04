@@ -75,11 +75,11 @@ function mockSuccessfulUpload(): void {
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 describe('AddGarment', () => {
-  let mockOnBack: ReturnType<typeof vi.fn>;
+  let mockOnBack: ReturnType<typeof vi.fn<() => void>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockOnBack = vi.fn();
+    mockOnBack = vi.fn<() => void>();
   });
 
   // ── Initial rendering ─────────────────────────────────────────────────────

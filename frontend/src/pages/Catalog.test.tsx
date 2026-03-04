@@ -40,13 +40,13 @@ const mockResponseWithToken: GarmentListResponse = {
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Catalog', () => {
-  let mockOnAdd: ReturnType<typeof vi.fn>;
-  let mockOnSelect: ReturnType<typeof vi.fn>;
+  let mockOnAdd: ReturnType<typeof vi.fn<() => void>>;
+  let mockOnSelect: ReturnType<typeof vi.fn<(garmentId: string) => void>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockOnAdd = vi.fn();
-    mockOnSelect = vi.fn();
+    mockOnAdd = vi.fn<() => void>();
+    mockOnSelect = vi.fn<(garmentId: string) => void>();
   });
 
   // ── Loading state ───────────────────────────────────────────────────────

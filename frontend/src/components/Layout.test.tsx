@@ -13,8 +13,6 @@ vi.mock('./Layout.module.css', () => ({ default: {} }));
 
 // ── Mock BottomNav to isolate Layout ─────────────────────────────────────────
 
-const mockOnNavigate = vi.fn();
-
 vi.mock('./BottomNav', () => ({
   default: (props: { current: string; onNavigate: (page: string) => void }) =>
     React.createElement(
@@ -34,11 +32,11 @@ import type { Page } from '../App';
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('Layout', () => {
-  let onNavigate: ReturnType<typeof vi.fn>;
+  let onNavigate: ReturnType<typeof vi.fn<(page: Page) => void>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    onNavigate = vi.fn();
+    onNavigate = vi.fn<(page: Page) => void>();
   });
 
   it('renders children inside a <main> element', () => {

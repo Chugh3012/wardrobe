@@ -16,11 +16,11 @@ import type { Page } from '../App';
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('BottomNav', () => {
-  let onNavigate: ReturnType<typeof vi.fn>;
+  let onNavigate: ReturnType<typeof vi.fn<(page: Page) => void>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    onNavigate = vi.fn();
+    onNavigate = vi.fn<(page: Page) => void>();
   });
 
   it('renders all four navigation items', () => {

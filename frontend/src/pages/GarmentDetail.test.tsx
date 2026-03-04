@@ -40,11 +40,11 @@ const mockStats: StatsSummary = {
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 describe('GarmentDetail', () => {
-  let mockOnBack: ReturnType<typeof vi.fn>;
+  let mockOnBack: ReturnType<typeof vi.fn<() => void>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockOnBack = vi.fn();
+    mockOnBack = vi.fn<() => void>();
   });
 
   // ── Loading state ────────────────────────────────────────────────────────
