@@ -222,7 +222,7 @@ export async function generateSasUrl(
     );
     return {
       status: 500,
-      jsonBody: { error: "Failed to generate SAS URL. Check server logs." },
+      jsonBody: { error: "Failed to generate SAS URL." },
     };
   }
 }

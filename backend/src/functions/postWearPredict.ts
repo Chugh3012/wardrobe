@@ -157,7 +157,7 @@ export async function postWearPredict(
     );
     return {
       status: 500,
-      jsonBody: { error: "Failed to predict garments. Check server logs." },
+      jsonBody: { error: "Failed to predict garments." },
     };
   }
 }

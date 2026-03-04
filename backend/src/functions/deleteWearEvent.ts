@@ -97,7 +97,7 @@ export async function deleteWearEventHandler(
     );
     return {
       status: 500,
-      jsonBody: { error: "Failed to delete wear event. Check server logs." },
+      jsonBody: { error: "Failed to delete wear event." },
     };
   }
 }

@@ -215,7 +215,7 @@ export async function postGarment(
     );
     return {
       status: 500,
-      jsonBody: { error: "Failed to create garment. Check server logs." },
+      jsonBody: { error: "Failed to create garment." },
     };
   }
 }
