@@ -126,19 +126,20 @@ export async function patchGarment(
 
   if (body.category !== undefined) {
     const category = typeof body.category === "string" ? body.category.trim() : "";
-    if (!category) {
+    const normalizedCategory = category.toLowerCase();
+    if (!normalizedCategory) {
       return {
         status: 400,
         jsonBody: { error: "'category' must be a non-empty string." },
       };
     }
-    if (category.length > MAX_CATEGORY_LENGTH) {
+    if (normalizedCategory.length > MAX_CATEGORY_LENGTH) {
       return {
         status: 400,
         jsonBody: { error: `'category' must be at most ${MAX_CATEGORY_LENGTH} characters.` },
       };
     }
-    if (!ALLOWED_CATEGORIES.has(category.toLowerCase())) {
+    if (!ALLOWED_CATEGORIES.has(normalizedCategory)) {
       return {
         status: 400,
         jsonBody: {
@@ -146,7 +147,7 @@ export async function patchGarment(
         },
       };
     }
-    updates.category = category;
+    updates.category = normalizedCategory;
   }
 
   if (body.catalogImageUrls !== undefined) {
