@@ -257,6 +257,10 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new Error(message);
   }
+  // 204 No Content — DELETE endpoints return no body
+  if (res.status === 204) {
+    return undefined as T;
+  }
   const contentType = res.headers.get('content-type') ?? '';
   if (!contentType.includes('application/json')) {
     throw new Error('Unexpected response format from API.');
@@ -385,27 +389,9 @@ export async function confirmWear(
  * DELETE /api/wear/events/{id} — remove a previously recorded outfit (wear event).
  */
 export async function deleteWearEvent(id: string): Promise<void> {
-  const token = await getAccessToken();
-  const url = `${apiBaseUrl}/api/wear/events/${encodeURIComponent(id)}`;
-  const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(url, {
+  await apiFetch<void>(`/api/wear/events/${encodeURIComponent(id)}`, {
     method: 'DELETE',
-    headers,
   });
-  if (!res.ok) {
-    let message = `Request failed (${res.status})`;
-    try {
-      const ct = res.headers.get('content-type') ?? '';
-      if (ct.includes('application/json')) {
-        const body = await res.json();
-        if (body?.error) message = body.error;
-      }
-    } catch {
-      // body wasn't JSON — keep default message
-    }
-    throw new Error(message);
-  }
   invalidateCache('/api/stats', '/api/wear/history', '/api/garments');
 }
 
@@ -413,27 +399,9 @@ export async function deleteWearEvent(id: string): Promise<void> {
  * DELETE /api/garments/{id} — remove a garment from the user's catalog.
  */
 export async function deleteGarment(id: string): Promise<void> {
-  const token = await getAccessToken();
-  const url = `${apiBaseUrl}/api/garments/${encodeURIComponent(id)}`;
-  const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(url, {
+  await apiFetch<void>(`/api/garments/${encodeURIComponent(id)}`, {
     method: 'DELETE',
-    headers,
   });
-  if (!res.ok) {
-    let message = `Request failed (${res.status})`;
-    try {
-      const ct = res.headers.get('content-type') ?? '';
-      if (ct.includes('application/json')) {
-        const body = await res.json();
-        if (body?.error) message = body.error;
-      }
-    } catch {
-      // body wasn't JSON — keep default message
-    }
-    throw new Error(message);
-  }
   invalidateCache('/api/garments', '/api/stats');
 }
 
