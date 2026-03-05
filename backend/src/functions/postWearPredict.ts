@@ -149,7 +149,7 @@ export async function postWearPredict(
         predictions: results,
       },
     };
-  } catch (err) {
+  } catch (err: unknown) {
     context.log(`Error in wear/predict: ${err}`);
     trackException(
       err instanceof Error ? err : new Error(String(err)),

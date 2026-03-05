@@ -88,7 +88,7 @@ export async function getGarments(
         ...(nextToken ? { continuationToken: nextToken } : {}),
       },
     };
-  } catch (err) {
+  } catch (err: unknown) {
     context.log(`Error listing garments: ${err}`);
     trackException(
       err instanceof Error ? err : new Error(String(err)),

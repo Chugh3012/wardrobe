@@ -191,7 +191,7 @@ export async function postWearConfirm(
       status: 200,
       jsonBody: wearEvent,
     };
-  } catch (err) {
+  } catch (err: unknown) {
     context.log(`Error in wear/confirm: ${err}`);
     trackException(
       err instanceof Error ? err : new Error(String(err)),

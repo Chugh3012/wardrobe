@@ -76,7 +76,7 @@ export async function deleteWearEventHandler(
     // ── Decrement wear count on the associated garment ──────────────────────
     try {
       await decrementWearCount(wearEvent.garmentId, userId);
-    } catch (err) {
+    } catch (err: unknown) {
       // Log but don't fail the request — the wear event is already deleted
       context.log(`Warning: failed to decrement wearCount for garment ${wearEvent.garmentId}: ${err}`);
     }
@@ -89,7 +89,7 @@ export async function deleteWearEventHandler(
     );
 
     return { status: 204 };
-  } catch (err) {
+  } catch (err: unknown) {
     context.log(`Error deleting wear event: ${err}`);
     trackException(
       err instanceof Error ? err : new Error(String(err)),

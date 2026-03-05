@@ -154,7 +154,7 @@ export async function getStatsSummary(
         calendar: wearDates,
       },
     };
-  } catch (err) {
+  } catch (err: unknown) {
     context.log(`Error in stats/summary: ${err}`);
     trackException(
       err instanceof Error ? err : new Error(String(err)),

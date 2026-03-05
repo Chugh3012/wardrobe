@@ -92,7 +92,7 @@ export async function getWearHistory(
         ...(nextToken ? { continuationToken: nextToken } : {}),
       },
     };
-  } catch (err) {
+  } catch (err: unknown) {
     context.log(`Error in wear/history: ${err}`);
     trackException(
       err instanceof Error ? err : new Error(String(err)),
