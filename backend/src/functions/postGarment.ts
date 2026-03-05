@@ -208,7 +208,7 @@ export async function postGarment(
       status: 201,
       jsonBody: garment,
     };
-  } catch (err) {
+  } catch (err: unknown) {
     context.log(`Error creating garment: ${err}`);
     trackException(
       err instanceof Error ? err : new Error(String(err)),
