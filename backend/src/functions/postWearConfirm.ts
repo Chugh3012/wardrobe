@@ -12,15 +12,13 @@ import {
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
 import { trackEvent, trackMetric, trackException } from "../services/telemetryService.js";
+import { MAX_ID_LENGTH, SAFE_ENTITY_ID_RE } from "../constants.js";
 
 interface PostWearConfirmBody {
   predictionAuditId?: unknown;
   confirmedGarmentId?: unknown;
   confirmed?: unknown;
 }
-
-/** Maximum length for ID fields. */
-const MAX_ID_LENGTH = 256;
 
 /**
  * POST /api/wear/confirm
@@ -84,7 +82,7 @@ export async function postWearConfirm(
     };
   }
   // L15: Character-set validation (defense-in-depth)
-  if (!/^[a-zA-Z0-9_-]+$/.test(predictionAuditId)) {
+  if (!SAFE_ENTITY_ID_RE.test(predictionAuditId)) {
     return {
       status: 400,
       jsonBody: { error: "Invalid 'predictionAuditId' format." },
@@ -103,7 +101,7 @@ export async function postWearConfirm(
     };
   }
   // L15: Character-set validation (defense-in-depth)
-  if (!/^[a-zA-Z0-9_-]+$/.test(confirmedGarmentId)) {
+  if (!SAFE_ENTITY_ID_RE.test(confirmedGarmentId)) {
     return {
       status: 400,
       jsonBody: { error: "Invalid 'confirmedGarmentId' format." },

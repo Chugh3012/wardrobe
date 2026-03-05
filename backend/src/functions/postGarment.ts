@@ -13,28 +13,14 @@ import {
 } from "../services/authMiddleware.js";
 import { isValidImageUrl } from "../services/urlValidator.js";
 import { trackEvent, trackException } from "../services/telemetryService.js";
-
-/** Minimum number of catalog photos required for onboarding. */
-const MIN_PHOTOS = 1;
-/** Maximum number of catalog photos allowed. */
-const MAX_PHOTOS = 8;
-/** Maximum length for garment name. */
-const MAX_NAME_LENGTH = 100;
-/** Maximum length for garment category. */
-const MAX_CATEGORY_LENGTH = 50;
-/** Maximum length for URL fields (S12). */
-const MAX_URL_LENGTH = 2048;
-
-/** Allowed garment categories — must match the frontend CATEGORIES array (F2). */
-const ALLOWED_CATEGORIES = new Set([
-  "dress",
-  "top",
-  "bottom",
-  "outerwear",
-  "shoes",
-  "accessory",
-  "other",
-]);
+import {
+  MIN_PHOTOS,
+  MAX_PHOTOS,
+  MAX_NAME_LENGTH,
+  MAX_CATEGORY_LENGTH,
+  MAX_URL_LENGTH,
+  ALLOWED_CATEGORIES,
+} from "../constants.js";
 
 interface PostGarmentBody {
   name?: unknown;
