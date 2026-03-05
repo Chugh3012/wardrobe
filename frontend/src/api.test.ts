@@ -218,7 +218,7 @@ describe('API Client', () => {
 
   describe('deleteWearEvent', () => {
     it('sends DELETE /api/wear/events/:id', async () => {
-      mockFetch.mockResolvedValue({ ok: true, status: 200, headers: new Headers() });
+      mockFetch.mockResolvedValue({ ok: true, status: 204, headers: new Headers() });
 
       await deleteWearEvent('we1');
 
@@ -243,6 +243,15 @@ describe('API Client', () => {
       const [url, init] = mockFetch.mock.calls[0];
       expect(url).toBe('http://localhost:7071/api/garments/g1');
       expect(init.method).toBe('DELETE');
+    });
+
+    it('attaches auth header on DELETE requests', async () => {
+      mockFetch.mockResolvedValue({ ok: true, status: 204, headers: new Headers() });
+
+      await deleteGarment('g1');
+
+      const [, init] = mockFetch.mock.calls[0];
+      expect(init.headers.get('Authorization')).toBe('Bearer mock-token-123');
     });
 
     it('throws on failure', async () => {
@@ -331,7 +340,7 @@ describe('API Client', () => {
       mockFetch.mockResolvedValue(mockJsonResponse(200, { events: [{ id: 'we1' }] }));
       await fetchWearHistory();
 
-      mockFetch.mockResolvedValue({ ok: true, status: 200, headers: new Headers() });
+      mockFetch.mockResolvedValue({ ok: true, status: 204, headers: new Headers() });
       await deleteWearEvent('we1');
 
       mockFetch.mockResolvedValue(mockJsonResponse(200, { events: [] }));
