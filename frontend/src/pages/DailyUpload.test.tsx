@@ -63,6 +63,7 @@ const lowConfidencePrediction: PredictResponse = {
 /** Stub URL.createObjectURL so preview generation doesn't throw in jsdom. */
 beforeEach(() => {
   global.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
+  global.URL.revokeObjectURL = vi.fn();
 });
 
 /** Configure API mocks for a successful upload → prediction flow. */
@@ -310,6 +311,34 @@ describe('DailyUpload', () => {
     expect(screen.queryByText('Network timeout')).not.toBeInTheDocument();
     expect(screen.queryByText('⚠️')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Take or select outfit photo')).toBeInTheDocument();
+  });
+
+  it('revokes the preview object URL when upload state is reset', async () => {
+    // Arrange
+    mockGetSasUrl.mockRejectedValue(new Error('Network timeout'));
+    render(React.createElement(DailyUpload));
+    await uploadFile();
+    await screen.findByText('Network timeout');
+
+    // Act
+    fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
+
+    // Assert — blob URL should be revoked via the effect cleanup when preview resets to null
+    await waitFor(() => expect(global.URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url'));
+  });
+
+  it('revokes the preview object URL on unmount', async () => {
+    // Arrange
+    mockGetSasUrl.mockRejectedValue(new Error('ignored'));
+    const { unmount } = render(React.createElement(DailyUpload));
+    await uploadFile();
+    await screen.findByText('ignored');
+
+    // Act
+    unmount();
+
+    // Assert — blob URL should be revoked when the component unmounts
+    await waitFor(() => expect(global.URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url'));
   });
 
   // ── High confidence prediction ────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import styles from './DailyUpload.module.css';
 import { getSasUrl, uploadToBlob, predictOutfit, confirmWear, deleteWearEvent, type PredictResponse } from '../api';
 
@@ -11,6 +11,15 @@ export default function DailyUpload() {
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [wearEventId, setWearEventId] = useState<string | null>(null);
+
+  // Keep a ref to the latest preview URL for unmount cleanup (avoids stale-closure issues).
+  const previewRef = useRef<string | null>(null);
+  previewRef.current = preview;
+
+  // Revoke the object URL on unmount to prevent memory leaks.
+  useEffect(() => {
+    return () => { if (previewRef.current) URL.revokeObjectURL(previewRef.current); };
+  }, []);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -64,6 +73,7 @@ export default function DailyUpload() {
   };
 
   const resetUpload = () => {
+    if (preview) URL.revokeObjectURL(preview);
     setResult(null);
     setConfirmed(false);
     setPreview(null);

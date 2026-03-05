@@ -28,6 +28,7 @@ const mockCreateGarment = createGarment as ReturnType<typeof vi.fn>;
 /** Stub URL.createObjectURL so preview generation doesn't throw in jsdom. */
 beforeEach(() => {
   global.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
+  global.URL.revokeObjectURL = vi.fn();
 });
 
 /** Create a fake image File for upload tests. */
@@ -206,6 +207,30 @@ describe('AddGarment', () => {
 
     // Assert
     expect(screen.queryByAltText('Photo 1')).not.toBeInTheDocument();
+  });
+
+  it('revokes the object URL for a removed photo', () => {
+    // Arrange
+    render(React.createElement(AddGarment, { onBack: mockOnBack }));
+    addFile();
+
+    // Act
+    fireEvent.click(screen.getByLabelText('Remove photo 1'));
+
+    // Assert — the blob URL should be revoked via the effect cleanup
+    expect(global.URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+  });
+
+  it('revokes all preview object URLs on unmount', () => {
+    // Arrange
+    const { unmount } = render(React.createElement(AddGarment, { onBack: mockOnBack }));
+    addFile();
+
+    // Act
+    unmount();
+
+    // Assert — all preview URLs should be revoked when the component unmounts
+    expect(global.URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
   });
 
   // ── Validation errors ─────────────────────────────────────────────────────
