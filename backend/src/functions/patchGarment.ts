@@ -11,30 +11,16 @@ import {
 } from "../services/authMiddleware.js";
 import { isValidImageUrl } from "../services/urlValidator.js";
 import { trackEvent, trackException } from "../services/telemetryService.js";
-
-/** Maximum length for garment name. */
-const MAX_NAME_LENGTH = 100;
-/** Maximum length for garment category. */
-const MAX_CATEGORY_LENGTH = 50;
-/** Maximum length for URL fields (S12). */
-const MAX_URL_LENGTH = 2048;
-/** Maximum length for ID fields. */
-const MAX_ID_LENGTH = 256;
-/** Minimum number of catalog photos required. */
-const MIN_PHOTOS = 1;
-/** Maximum number of catalog photos allowed. */
-const MAX_PHOTOS = 8;
-
-/** Allowed garment categories — must match the frontend CATEGORIES array (F2). */
-const ALLOWED_CATEGORIES = new Set([
-  "dress",
-  "top",
-  "bottom",
-  "outerwear",
-  "shoes",
-  "accessory",
-  "other",
-]);
+import {
+  MAX_NAME_LENGTH,
+  MAX_CATEGORY_LENGTH,
+  MAX_URL_LENGTH,
+  MAX_ID_LENGTH,
+  MIN_PHOTOS,
+  MAX_PHOTOS,
+  ALLOWED_CATEGORIES,
+  SAFE_ENTITY_ID_RE,
+} from "../constants.js";
 
 interface PatchGarmentBody {
   name?: unknown;
@@ -86,7 +72,7 @@ export async function patchGarment(
       jsonBody: { error: `'id' must be at most ${MAX_ID_LENGTH} characters.` },
     };
   }
-  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+  if (!SAFE_ENTITY_ID_RE.test(id)) {
     return {
       status: 400,
       jsonBody: { error: "Invalid 'id' format." },

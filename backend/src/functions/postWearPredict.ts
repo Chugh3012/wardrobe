@@ -14,13 +14,11 @@ import {
 } from "../services/authMiddleware.js";
 import { isValidImageUrl } from "../services/urlValidator.js";
 import { trackEvent, trackMetric, trackException } from "../services/telemetryService.js";
+import { MAX_URL_LENGTH } from "../constants.js";
 
 interface PostWearPredictBody {
   outfitImageUrl?: unknown;
 }
-
-/** Maximum length for URL fields. */
-const MAX_URL_LENGTH = 2048;
 
 /**
  * POST /api/wear/predict

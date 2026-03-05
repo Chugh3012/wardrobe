@@ -16,18 +16,13 @@ import {
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
 import { trackException } from "../services/telemetryService.js";
+import { MAX_BLOB_NAME_LENGTH, SAFE_BLOB_NAME_RE } from "../constants.js";
 
 const BLOB_CONTAINER_NAME_DEFAULT = "images";
 
 /** SAS token validity window in seconds. */
 const UPLOAD_TTL_SECONDS = 5 * 60; // 5 minutes — tight window for upload
 const READ_TTL_SECONDS = 60 * 60; // 1 hour  — enough time to view on phone
-
-/** Maximum allowed length for the caller-supplied blobName segment. */
-const MAX_BLOB_NAME_LENGTH = 256;
-
-/** Only safe characters are allowed in the caller-supplied blobName. */
-const SAFE_BLOB_NAME_RE = /^[a-zA-Z0-9._/-]+$/;
 
 /** Allowed MIME content types for image uploads (SEC-P6). */
 const ALLOWED_CONTENT_TYPES = new Set([

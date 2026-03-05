@@ -11,9 +11,7 @@ import {
   unauthorizedResponse,
 } from "../services/authMiddleware.js";
 import { trackEvent, trackException } from "../services/telemetryService.js";
-
-/** Maximum length for ID fields. */
-const MAX_ID_LENGTH = 256;
+import { MAX_ID_LENGTH, SAFE_ENTITY_ID_RE } from "../constants.js";
 
 /**
  * DELETE /api/wear/events/{id}
@@ -53,7 +51,7 @@ export async function deleteWearEventHandler(
     };
   }
   // L14: Character-set validation (defense-in-depth)
-  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+  if (!SAFE_ENTITY_ID_RE.test(id)) {
     return {
       status: 400,
       jsonBody: { error: "Invalid 'id' format." },
