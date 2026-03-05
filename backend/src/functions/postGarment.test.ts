@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { HttpRequest, InvocationContext } from "@azure/functions";
+import { HttpRequest } from "@azure/functions";
 import { resetClient } from "../services/cosmosClient.js";
+import { encodeClientPrincipal, makePostRequest, makeContext as makeBaseContext } from "../testUtils.js";
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
@@ -28,24 +29,12 @@ vi.mock("@azure/identity", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function encodeClientPrincipal(userId: string): string {
-  return Buffer.from(JSON.stringify({ userId })).toString("base64");
+function makeRequest(body: unknown, userId?: string) {
+  return makePostRequest("/api/garments", body, { userId });
 }
 
-function makeRequest(body: unknown, userId?: string): HttpRequest {
-  return new HttpRequest({
-    method: "POST",
-    url: "http://localhost:7071/api/garments",
-    headers: {
-      "Content-Type": "application/json",
-      ...(userId ? { "x-ms-client-principal": encodeClientPrincipal(userId) } : {}),
-    },
-    body: { string: JSON.stringify(body) },
-  });
-}
-
-function makeContext(): InvocationContext {
-  return new InvocationContext({ functionName: "postGarment" });
+function makeContext() {
+  return makeBaseContext("postGarment");
 }
 
 function validBody(overrides: Record<string, unknown> = {}) {

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { HttpRequest, InvocationContext } from "@azure/functions";
+import { HttpRequest } from "@azure/functions";
+import { encodeClientPrincipal, makePostRequest, makeContext as makeBaseContext } from "../testUtils.js";
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
@@ -25,26 +26,13 @@ vi.mock("@azure/identity", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function encodeClientPrincipal(userId: string): string {
-  return Buffer.from(JSON.stringify({ userId })).toString("base64");
-}
-
-function makeRequest(body: unknown, headers?: Record<string, string>): HttpRequest {
-  return new HttpRequest({
-    method: "POST",
-    url: "http://localhost:7071/api/images/sas-url",
-    headers: { "Content-Type": "application/json", ...headers },
-    body: { string: JSON.stringify(body) },
-  });
-}
-
 /** Shorthand: create a request with auth via base64 client principal. */
-function makeAuthRequest(body: unknown, userId: string = "user-1"): HttpRequest {
-  return makeRequest(body, { "x-ms-client-principal": encodeClientPrincipal(userId) });
+function makeAuthRequest(body: unknown, userId: string = "user-1") {
+  return makePostRequest("/api/images/sas-url", body, { userId });
 }
 
-function makeContext(): InvocationContext {
-  return new InvocationContext({ functionName: "generateSasUrl" });
+function makeContext() {
+  return makeBaseContext("generateSasUrl");
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -69,7 +57,7 @@ describe("POST /api/images/sas-url", () => {
 
   it("returns 401 when auth header is missing", async () => {
     const { generateSasUrl } = await import("./images.js");
-    const res = await generateSasUrl(makeRequest({ blobName: "test.jpg" }), makeContext());
+    const res = await generateSasUrl(makePostRequest("/api/images/sas-url", { blobName: "test.jpg" }), makeContext());
     expect(res.status).toBe(401);
     expect((res.jsonBody as { error: string }).error).toContain("Authentication required");
   });

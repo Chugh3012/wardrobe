@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { HttpRequest, InvocationContext } from "@azure/functions";
 import { resetClient } from "../services/cosmosClient.js";
+import { makeGetRequest, makeContext as makeBaseContext } from "../testUtils.js";
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
@@ -29,20 +29,12 @@ vi.mock("@azure/identity", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function encodeClientPrincipal(userId: string): string {
-  return Buffer.from(JSON.stringify({ userId })).toString("base64");
+function makeRequest(userId?: string) {
+  return makeGetRequest("/api/stats/summary", { userId });
 }
 
-function makeRequest(userId?: string): HttpRequest {
-  return new HttpRequest({
-    method: "GET",
-    url: "http://localhost:7071/api/stats/summary",
-    ...(userId ? { headers: { "x-ms-client-principal": encodeClientPrincipal(userId) } } : {}),
-  });
-}
-
-function makeContext(): InvocationContext {
-  return new InvocationContext({ functionName: "getStatsSummary" });
+function makeContext() {
+  return makeBaseContext("getStatsSummary");
 }
 
 function sampleGarments() {
