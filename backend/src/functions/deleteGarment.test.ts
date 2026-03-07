@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { HttpRequest, InvocationContext } from "@azure/functions";
 import { resetClient } from "../services/cosmosClient.js";
+import { encodeClientPrincipal, makeContext as makeBaseContext } from "../testUtils.js";
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
@@ -39,10 +40,6 @@ vi.mock("@azure/identity", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function encodeClientPrincipal(userId: string): string {
-  return Buffer.from(JSON.stringify({ userId })).toString("base64");
-}
-
 function makeRequest(id: string, userId?: string): HttpRequest {
   return new HttpRequest({
     method: "DELETE",
@@ -55,7 +52,7 @@ function makeRequest(id: string, userId?: string): HttpRequest {
 }
 
 function makeContext(): InvocationContext {
-  return new InvocationContext({ functionName: "deleteGarment" });
+  return makeBaseContext("deleteGarment");
 }
 
 /** Minimal Garment document returned by readGarment. */

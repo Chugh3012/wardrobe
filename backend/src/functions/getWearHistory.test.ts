@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { HttpRequest, InvocationContext } from "@azure/functions";
 import { resetClient } from "../services/cosmosClient.js";
+import { makeGetRequest, makeContext as makeBaseContext } from "../testUtils.js";
 
 // ── Module mocks ──────────────────────────────────────────────────────────────
 
@@ -30,22 +30,12 @@ vi.mock("@azure/identity", () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function encodeClientPrincipal(userId: string): string {
-  return Buffer.from(JSON.stringify({ userId })).toString("base64");
+function makeRequest(userId?: string, query?: Record<string, string>) {
+  return makeGetRequest("/api/wear/history", { userId, query });
 }
 
-function makeRequest(userId?: string, query?: Record<string, string>): HttpRequest {
-  const params = new URLSearchParams(query);
-  const qs = params.toString();
-  return new HttpRequest({
-    method: "GET",
-    url: `http://localhost:7071/api/wear/history${qs ? `?${qs}` : ""}`,
-    ...(userId ? { headers: { "x-ms-client-principal": encodeClientPrincipal(userId) } } : {}),
-  });
-}
-
-function makeContext(): InvocationContext {
-  return new InvocationContext({ functionName: "getWearHistory" });
+function makeContext() {
+  return makeBaseContext("getWearHistory");
 }
 
 function sampleGarments() {
