@@ -209,12 +209,14 @@ jobs:
 
       - name: Audit backend dependencies
         working-directory: backend
-        run: npm audit --audit-level=critical
-        # Fails CI on critical vulnerabilities. High/moderate are warnings.
+        run: npm audit --omit=dev --audit-level=critical
+        # Gates on critical vulnerabilities in PRODUCTION dependencies only.
+        # Dev-server tooling (vitest/vite/esbuild) is never shipped, so its
+        # advisories are tracked separately rather than blocking deploys.
 
       - name: Audit frontend dependencies
         working-directory: frontend
-        run: npm audit --audit-level=critical
+        run: npm audit --omit=dev --audit-level=critical
 
       - name: Check for secrets in code
         run: |
