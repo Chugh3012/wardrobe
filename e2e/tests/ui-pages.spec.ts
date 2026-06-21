@@ -1,19 +1,22 @@
 /**
  * E2E: UI Verification (@ui)
  *
- * Architecture: Pattern A — SWA protects only /api/* routes.
- * The SPA shell (HTML/JS/CSS) loads for everyone. The React app checks
- * /.auth/me client-side and redirects unauthenticated users to login.
+ * Architecture: the Static Web App runs on the Free SKU and serves the SPA
+ * shell to everyone. Authentication is handled client-side via MSAL (see
+ * frontend/src/msalConfig.ts) — the React app acquires an AAD token and sends
+ * it as a Bearer token to the standalone Function App, which enforces auth.
+ * The SWA itself does NOT use managed auth (`.auth/*`), which requires the
+ * Standard SKU.
  *
  * Test categories:
  *
  * 1. **SWA-specific tests**: Run against the live SWA URL to verify
- *    API auth enforcement, /login rewrite, disabled providers,
- *    PWA manifest, security headers, asset loading, SPA fallback.
+ *    API auth enforcement, PWA manifest, security headers, asset loading,
+ *    and SPA fallback.
  *
  * 2. **Page rendering tests**: Run against a local Vite preview server
- *    with /.auth/me mocked as authenticated. API calls are intercepted
- *    via Playwright route mocking.
+ *    with auth skipped. API calls are intercepted via Playwright route
+ *    mocking.
  *
  * Prerequisites:
  *   - SWA_URL env var for SWA-specific tests
@@ -54,35 +57,6 @@ test.describe('Authentication @ui', () => {
     expect(res.status()).toBe(200);
     const html = await res.text();
     expect(html).toContain('id="root"');
-  });
-
-  test('client-side auth check redirects unauthenticated users to login', async ({ page }) => {
-    skipIfNoSwa();
-    // Go to SWA — the shell loads, React calls /.auth/me → null → redirects to login
-    await page.goto(SWA_BASE, { waitUntil: 'networkidle', timeout: 15_000 });
-    const url = page.url();
-    const redirected = url.includes('login.microsoftonline.com')
-      || url.includes('/.auth/login');
-    expect(redirected, `Should redirect to Entra login, got: ${url}`).toBe(true);
-  });
-
-  test('/login route rewrites to /.auth/login/aad', async ({ page }) => {
-    skipIfNoSwa();
-    await page.goto(`${SWA_BASE}/login`, { waitUntil: 'commit' });
-    const url = page.url();
-    const isLoginPage = url.includes('login.microsoftonline.com')
-      || url.includes('/.auth/login/aad');
-    expect(isLoginPage, `Should be login page, got: ${url}`).toBe(true);
-  });
-
-  test('disabled identity providers return 404', async ({ request }) => {
-    skipIfNoSwa();
-    for (const provider of ['github', 'twitter']) {
-      const res = await request.get(`${SWA_BASE}/.auth/login/${provider}`, {
-        maxRedirects: 0,
-      });
-      expect([404, 302]).toContain(res.status());
-    }
   });
 });
 

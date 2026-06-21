@@ -8,7 +8,6 @@
  * Environment variables consumed (all VITE_ prefix so Vite exposes them):
  *   VITE_BLOB_ACCOUNT_NAME — Azure Storage account name (e.g. stwardrobeimgdev)
  *   VITE_API_BASE_URL      — Function App base URL (e.g. https://func-wardrobe-dev.azurewebsites.net)
- *   VITE_AAD_TENANT_ID     — Azure AD tenant ID for EasyAuth openIdIssuer
  */
 
 import { writeFileSync } from 'node:fs';
@@ -28,7 +27,6 @@ const STORAGE_ACCOUNT_RE = /^[a-z0-9]{3,24}$/;
 
 const rawBlobAccountName = process.env.VITE_BLOB_ACCOUNT_NAME?.trim() ?? '';
 const rawApiBaseUrl = process.env.VITE_API_BASE_URL?.trim() ?? '';
-const rawTenantId = process.env.VITE_AAD_TENANT_ID?.trim() ?? '';
 
 // Validate blob account name against Azure naming rules.
 const blobAccountName =
@@ -67,31 +65,14 @@ if (rawApiBaseUrl) {
   }
 }
 
-// Fall back to the default tenant if not provided via env.
-const tenantId = rawTenantId || '9a40715f-4db6-4dcd-8973-68db2b112fd8';
-
 // ── Configuration ─────────────────────────────────────────────────────────────
+//
+// Auth is handled client-side via MSAL (see msalConfig.ts), so this app does
+// NOT use Static Web Apps managed auth (`.auth/*`). Omitting the `auth` block
+// keeps the config compatible with the Free SKU (managed auth requires the
+// Standard SKU).
 
 const config = {
-  auth: {
-    identityProviders: {
-      azureActiveDirectory: {
-        registration: {
-          openIdIssuer: `https://login.microsoftonline.com/${tenantId}/v2.0`,
-          clientIdSettingName: 'AAD_CLIENT_ID',
-        },
-      },
-    },
-  },
-  routes: [
-    { route: '/login', rewrite: '/.auth/login/aad' },
-    { route: '/logout', redirect: '/.auth/logout' },
-    { route: '/.auth/login/github', statusCode: 404 },
-    { route: '/.auth/login/twitter', statusCode: 404 },
-  ],
-  responseOverrides: {
-    401: { redirect: '/.auth/login/aad', statusCode: 302 },
-  },
   navigationFallback: { rewrite: '/index.html' },
   globalHeaders: {
     // CSP directives:
