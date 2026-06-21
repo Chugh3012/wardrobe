@@ -25,5 +25,10 @@
     "@vitest/coverage-v8": "^4.0.18",
     "typescript": "^5.7.3",
     "vitest": "^4.0.18"
+  },
+  "overrides": {
+    "@emnapi/core": "1.11.1",
+    "@emnapi/runtime": "1.11.1",
+    "@emnapi/wasi-threads": "1.2.2"
   }
 }
