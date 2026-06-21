@@ -13,9 +13,24 @@
  * all methods are safe no-ops.
  */
 
-import * as appInsights from "applicationinsights";
+import type * as AppInsights from "applicationinsights";
 
-let client: appInsights.TelemetryClient | null = null;
+/**
+ * The Application Insights SDK is a heavy CommonJS module (multi-second load
+ * cost). It is loaded **only** when a connection string is configured, so cold
+ * starts stay fast in production-without-telemetry, local dev, and unit tests
+ * never pay the import cost.
+ *
+ * A dynamic `import()` (rather than `createRequire`) keeps the module mockable
+ * by Vitest, which then resolves both code and test to the same instance.
+ */
+const appInsights: typeof AppInsights | null = process.env[
+  "APPLICATIONINSIGHTS_CONNECTION_STRING"
+]
+  ? await import("applicationinsights")
+  : null;
+
+let client: AppInsights.TelemetryClient | null = null;
 
 /**
  * Returns the shared TelemetryClient, initialising on first call.
@@ -23,8 +38,9 @@ let client: appInsights.TelemetryClient | null = null;
  * Returns `null` when `APPLICATIONINSIGHTS_CONNECTION_STRING` is not set
  * (e.g. local development) — callers must handle the null case.
  */
-export function getTelemetryClient(): appInsights.TelemetryClient | null {
+export function getTelemetryClient(): AppInsights.TelemetryClient | null {
   if (client) return client;
+  if (!appInsights) return null;
 
   const connectionString = process.env["APPLICATIONINSIGHTS_CONNECTION_STRING"];
   if (!connectionString) return null;
