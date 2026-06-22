@@ -15,7 +15,7 @@ import { msalInstance, apiScopes, apiBaseUrl } from './msalConfig';
 
 // ── Local dev auth bypass ────────────────────────────────────────────────────
 // When VITE_SKIP_AUTH=true, we don't acquire MSAL tokens. The Vite proxy
-// (or mock API) injects x-ms-client-principal-id automatically.
+// injects x-ms-client-principal-id automatically.
 // Evaluated as a function (not a constant) so tests can control it via vi.stubEnv.
 function isAuthSkipped(): boolean {
   return import.meta.env.VITE_SKIP_AUTH === 'true';

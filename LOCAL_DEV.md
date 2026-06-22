@@ -22,13 +22,10 @@
 # 1. Install all dependencies
 npm run install:all
 
-# 2a. Full-stack (frontend + real backend hitting Azure)
+# 2. Full-stack (frontend + real backend hitting Azure)
 cp backend/local.settings.json.example backend/local.settings.json  # edit values
 cp frontend/.env.local.example frontend/.env.local
 npm run dev
-
-# 2b. Frontend-only with mock API (no Azure required)
-npm run dev:frontend-mock
 
 # 3. Run all tests
 npm run test:all
@@ -61,21 +58,7 @@ az login
 
 ## Local Development Modes
 
-### Mode 1: Frontend + Mock API (fastest, offline)
-
-**Best for**: UI development, styling, component work. No Azure account needed.
-
-```bash
-npm run dev:frontend-mock
-```
-
-This starts:
-- **Vite dev server** on `http://localhost:5173` — hot-reloading React app
-- **Mock API** on `http://localhost:7071` — returns realistic fake data
-
-The mock API serves all 6 endpoints with sample garments, stats, and predictions. MSAL auth is bypassed via `VITE_SKIP_AUTH=true` in `.env.local`.
-
-### Mode 2: Full-Stack (frontend + real Azure Functions backend)
+### Mode 1: Full-Stack (frontend + real Azure Functions backend)
 
 **Best for**: Testing real data flows, backend changes, end-to-end validation.
 
@@ -103,7 +86,7 @@ This starts:
 - The proxy injects `x-ms-client-principal-id: local-dev-user` header on each request
 - Backend runs with `REQUIRE_AUTH=false` and accepts the plain-text header
 
-### Mode 3: Frontend with real MSAL auth + real backend
+### Mode 2: Frontend with real MSAL auth + real backend
 
 **Best for**: Testing the full auth flow including token acquisition.
 
@@ -118,12 +101,11 @@ npm run dev
 
 MSAL will redirect to Azure AD login, acquire a real token, and the Vite proxy still injects the `x-ms-client-principal-id` header for the backend.
 
-### Mode 4: Start services individually
+### Mode 3: Start services individually
 
 ```bash
 npm run dev:frontend   # Vite only on :5173
 npm run dev:backend    # Azure Functions only on :7071
-npm run dev:mock       # Mock API only on :7071
 ```
 
 ---
@@ -296,8 +278,6 @@ Browser → Vite (:5173) → Proxy → Azure Functions (:7071)
 | `npm run dev` | Start frontend + backend together |
 | `npm run dev:frontend` | Frontend only (Vite dev server) |
 | `npm run dev:backend` | Backend only (Azure Functions) |
-| `npm run dev:mock` | Mock API server only |
-| `npm run dev:frontend-mock` | Frontend + mock API together |
 | `npm run build` | Build both frontend and backend |
 | `npm run test` | Run all unit tests |
 | `npm run test:backend` | Backend unit tests (Vitest) |
@@ -328,7 +308,7 @@ Run `az login` to authenticate with Azure. The backend uses your Azure CLI sessi
 
 ### Vite proxy returns 502
 
-The backend (port 7071) isn't running. Start it with `npm run dev:backend` or use mock mode.
+The backend (port 7071) isn't running. Start it with `npm run dev:backend`.
 
 ### MSAL redirect loop
 

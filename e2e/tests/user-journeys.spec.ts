@@ -4,9 +4,9 @@
  * Tests REAL user interaction flows — clicking buttons, filling forms,
  * uploading files, confirming actions, and navigating between pages.
  *
- * These run against the local Vite dev server (localhost:5173) with
- * the mock API (localhost:7071) providing realistic responses.
- * API routes are intercepted via Playwright's route mocking where needed.
+ * These run against the local Vite dev server (localhost:5173). API calls are
+ * intercepted in-browser via Playwright's route mocking to provide realistic
+ * responses — no backend or Azure resources are required.
  *
  * Each test simulates what an actual user would do on their phone.
  */

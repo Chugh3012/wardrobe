@@ -24,7 +24,7 @@ backend/          → Azure Functions API (Node.js v20, ESM)
 frontend/         → React SPA (Vite, CSS Modules)
 e2e/              → Playwright E2E tests (4 projects)
 infra/            → Azure Bicep IaC
-scripts/          → Dev tooling (mock API, dev orchestrator)
+scripts/          → Dev tooling (dev orchestrator, local smoke test)
 .github/
   instructions/   → Scoped Copilot instructions (auto-applied by file pattern)
   agents/         → Specialized Copilot chat agents
